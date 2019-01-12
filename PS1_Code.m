@@ -98,30 +98,6 @@ bound_over
 
 rand_vector = randi([-10 10],1,200);
 
-deduped_vals = unique(rand_vector,'stable')
-add_zeros = zeros(rows(deduped_vals'))
-col_add_zeros = add_zeros(1:rows(add_zeros),1)
-accum_output = horzcat(deduped_vals',col_add_zeros)
-
-for num = 1:rows(deduped_vals') 
-    compare_val = accum_output(num,1);
-    val_counter = 0;
-    
-    last_row = rows(rand_vector');
-    
-    for i = 1:last_row
-        if rand_vector(1,i) == compare_val
-            val_counter = val_counter + 1;
-        end;
-        
-        if i == last_row
-            accum_output(num,2) = val_counter;
-        end;
-        
-    end;
-    
-end;
-
 
         
         
