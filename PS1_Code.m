@@ -21,6 +21,7 @@ end;
 lowerbound_over = 0;
 upperbound_over = val_over;
 midpoint_over = (upperbound_over + lowerbound_over) / 2;
+midlast_over = 0;
 first = 1
 tol = 10^(-14);
 
@@ -96,7 +97,39 @@ bound_over
 %2. Accumarray
 %%%%%%%%
 
-rand_vector = randi([-10 10],1,200);
+rand_vector = randi([1 10],1,200);
+
+subs = [ 1 8 5 5 10 8 5 ; 4 9 3 5 1 9 5]';
+max_row = max(subs(:,1));
+max_col = max(subs(:,2));
+output_mat = zeros(max_row,max_col);
+
+for i = 1:rows(subs)
+    val_use = rand_vector(1,i);
+    
+    output_row = subs(i,1);
+    output_col = subs(i,2);
+    
+    output_mat(output_row,output_col) = output_mat(output_row,output_col) + val_use;
+    
+end;
+
+
+%%%%%%%%
+%3. MLE Estimation of Utility
+%%%%%%%% 
+indcount = 5000;
+
+beta = 25;
+xi = [12 25 92];
+p = normrnd(10,10,[indcount,3]);
+
+
+
+    
+    
+
+
 
 
         

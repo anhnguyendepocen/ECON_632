@@ -21,6 +21,7 @@ end;
 lowerbound_over = 0;
 upperbound_over = val_over;
 midpoint_over = (upperbound_over + lowerbound_over) / 2;
+midlast_over = 0;
 first = 1
 tol = 10^(-14);
 
@@ -96,21 +97,38 @@ bound_over
 %2. Accumarray
 %%%%%%%%
 
-rand_vector = randi([-10 10],1,200);
+rand_vector = randi([1 10],1,200);
 
-deduped_vals = unique(rand_vector,'stable')
-add_zeros = zeros(rows(deduped_vals'))
-col_add_zeros = add_zeros(1:rows(add_zeros),1)
-accum_output = horzcat(deduped_vals',col_add_zeros)
+subs = [ 1 8 5 5 10 8 5 ; 4 9 3 5 1 9 5]';
+max_row = max(subs(:,1));
+max_col = max(subs(:,2));
+output_mat = zeros(max_row,max_col);
 
-for num = 1:rows(deduped_vals') 
-    compare_val = accum_output(1,1);
-    val_counter = 0;
+for i = 1:rows(subs)
+    val_use = rand_vector(1,i);
     
-    last_row = rows(rand_vector');
+    output_row = subs(i,1);
+    output_col = subs(i,2);
     
-    for i = 1:last_row
-        
+    output_mat(output_row,output_col) = output_mat(output_row,output_col) + val_use;
+    
+end;
+
+
+%%%%%%%%
+%3. MLE Estimation of Utility
+%%%%%%%%
+    
+
+indcount = 5000;
+beta = 11;
+xi = randi([5 5],1,200);
+    
+    
+
+
+
+
         
         
 
