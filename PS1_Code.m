@@ -92,6 +92,19 @@ bound_over
 %check_val = log(exp(bound_under));
 %abs(check_val - bound_under)
 
+%%%%%%
+%Overflow Safe Computing
+%https://lingpipe-blog.com/2009/06/25/log-sum-of-exponentials/
+%%%%%%
+
+%Create some random numbers near the upper bound:
+rand_exp_lower = round(bound_over)-100;
+rand_exp_upper = round(bound_over)+100;
+rand_for_exp = randi([rand_exp_lower rand_exp_upper],1,200);
+max_rand = max(rand_for_exp);
+
+overflow_safe = max_rand + log(exp(rand_for_exp - max_rand))
+verify_identical = min(overflow_safe == rand_for_exp) * 1;
 
 %%%%%%%%
 %2. Accumarray
@@ -121,8 +134,19 @@ end;
 indcount = 5000;
 
 beta = 25;
-xi = [12 25 92];
+xi = [12 25 29];
 p = normrnd(10,10,[indcount,3]);
+epsilon = evrnd(0,10,[indcount,3]);
+
+choicedata = beta * p + ones(indcount,1)*xi + epsilon ;
+[M,choice] = max(choicedata, [], 2);
+
+
+
+
+
+
+
 
 
 

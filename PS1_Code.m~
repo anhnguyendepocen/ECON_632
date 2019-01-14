@@ -89,6 +89,11 @@ bound_under = max(midpoint_under,midlast_under);
 bound_under
 bound_over
 
+
+
+%%%%%%
+
+
 %check_val = log(exp(bound_under));
 %abs(check_val - bound_under)
 
@@ -117,12 +122,26 @@ end;
 
 %%%%%%%%
 %3. MLE Estimation of Utility
-%%%%%%%%
-    
-
+%%%%%%%% 
 indcount = 5000;
-beta = 11;
-xi = randi([5 5],1,200);
+
+beta = 25;
+xi = [12 25 29];
+p = normrnd(10,10,[indcount,3]);
+epsilon = evrnd(0,10,[indcount,3]);
+
+choicedata = beta * p + ones(indcount,1)*xi + epsilon ;
+[M,choice] = max(choicedata, [], 2);
+
+
+
+
+
+
+
+
+
+
     
     
 
