@@ -106,6 +106,7 @@ max_rand = max(rand_for_exp);
 overflow_safe = max_rand + log(exp(rand_for_exp - max_rand))
 verify_identical = min(overflow_safe == rand_for_exp) * 1;
 
+%% 2_Accumarray
 %%%%%%%%
 %2. Accumarray
 %%%%%%%%
@@ -113,21 +114,11 @@ verify_identical = min(overflow_safe == rand_for_exp) * 1;
 rand_vector = randi([1 10],1,200);
 
 subs = [ 1 8 5 5 10 8 5 ; 4 9 3 5 1 9 5]';
-max_row = max(subs(:,1));
-max_col = max(subs(:,2));
-output_mat = zeros(max_row,max_col);
 
-for i = 1:rows(subs)
-    val_use = rand_vector(1,i);
-    
-    output_row = subs(i,1);
-    output_col = subs(i,2);
-    
-    output_mat(output_row,output_col) = output_mat(output_row,output_col) + val_use;
-    
-end;
+accum_out = rm_accumarray(subs,rand_vector);
 
 
+%% 3_MLE_Utility
 %%%%%%%%
 %3. MLE Estimation of Utility
 %%%%%%%% 
@@ -140,6 +131,57 @@ epsilon = evrnd(0,10,[indcount,3]);
 
 choicedata = beta * p + ones(indcount,1)*xi + epsilon ;
 [M,choice] = max(choicedata, [], 2);
+
+%Turn choice matrix into indicator matrix
+choice_ind = zeros(rows(choice),3);
+ for i = 1:rows(choice) 
+     if choice(i,1) < 2 
+         choice_ind(i,1) = 1;
+     elseif choice(i,1) < 3
+          choice_ind(i,2) = 1;
+     else
+         choice_ind(i,3) = 1;
+  end;  
+ end;
+ 
+p_of_choice = diag(choice_ind * p');
+
+%%%Run Logit 
+%Feed in Starting Values
+betahat = 1;
+xi1hat =0;
+xi2hat = 1;
+xi3hat = 2;
+
+x0 = [betahat, xi1hat, xi2hat, xi3hat];
+
+%prod_fe = [xi1hat, xi2hat, xi3hat]';
+%fe_of_choice = choice_ind * prod_fe;
+%fe_rep = repmat(prod_fe',rows(choice_ind),1);
+
+%beta_price_plus_fe = betahat * p + fe_rep;
+%exp_beta_price_plus_fe = arrayfun(@(x) exp((x)),beta_price_plus_fe);
+%sum_exps = exp_beta_price_plus_fe * ones(3,1);
+
+%ll_per_obs =  betahat * p_of_choice + fe_of_choice - log_sum_exp;
+%ll_sum = sum(ll_per_obs,1);
+
+
+%One-Time Without Giving the Optimizer the F.O.C.
+[x,fval] = fminunc(ll3,x0);
+
+ options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
+[estimate,log_like,exitflag,output,Gradient,Hessian] = fminunc(ll3,x0,options);
+
+
+
+
+
+
+
+
+
+%Feed in Gradient
 
 
 
