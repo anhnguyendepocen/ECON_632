@@ -1,6 +1,8 @@
 %Created by RM on 2019.01.12 for ECON 632
 %Part II: Programming
 
+rng(632632632);
+
 %%%%%%%%
 %1. Underflow and Overflow
 %%%%%%%%
@@ -122,56 +124,87 @@ accum_out = rm_accumarray(subs,rand_vector);
 %%%%%%%%
 %3. MLE Estimation of Utility
 %%%%%%%% 
-indcount = 5000;
 
-beta = 25;
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     SIMULATE DATA
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+nsit = 5000; % number of choice situations
+nopt = 3; % number of options in each choice situation
+caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
+
+% Set parameters
+beta = -18;
 xi = [12 25 29];
-p = normrnd(10,10,[indcount,3]);
-epsilon = evrnd(0,10,[indcount,3]);
+xi = xi - mean(xi);
 
-choicedata = beta * p + ones(indcount,1)*xi + epsilon ;
-[M,choice] = max(choicedata, [], 2);
+% Simulate x (prices)
+price = random('norm', 10, 10,[nsit*nopt,1]);
 
-%Turn choice matrix into indicator matrix
-choice_ind = zeros(rows(choice),3);
- for i = 1:rows(choice) 
-     if choice(i,1) < 2 
-         choice_ind(i,1) = 1;
-     elseif choice(i,1) < 3
-          choice_ind(i,2) = 1;
-     else
-         choice_ind(i,3) = 1;
-  end;  
- end;
- 
-p_of_choice = diag(choice_ind * p');
+% Create Product FEs
+prod_fe = repmat(xi',nsit,1);
 
-%%%Run Logit 
-%Feed in Starting Values
-betahat = 1;
+% Utility
+u = beta*price + prod_fe + random('ev', 0, 1,[nsit*nopt,1]);
+
+% Find max utility
+max_u = accumarray(caseid,u,[],@max);
+choice = (max_u(caseid)==u);
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     RUN LOGIT
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Set starting values
+betahat = 0;
 xi1hat =0;
-xi2hat = 1;
-xi3hat = 2;
+xi2hat = 0;
+xi3hat = 0;
+x0 = [betahat xi1hat xi2hat xi3hat];
 
-x0 = [betahat, xi1hat, xi2hat, xi3hat];
+%Optimize Log Likelihood
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
+[estimate,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll3(x0,caseid,choice,price),x0,options);
 
-%prod_fe = [xi1hat, xi2hat, xi3hat]';
-%fe_of_choice = choice_ind * prod_fe;
-%fe_rep = repmat(prod_fe',rows(choice_ind),1);
+% Calcuate standard errors
+cov_Hessian = inv(Hessian);
+std_c = sqrt(diag(cov_Hessian));
+%t_stat = estimator_big./std_c;
 
-%beta_price_plus_fe = betahat * p + fe_rep;
-%exp_beta_price_plus_fe = arrayfun(@(x) exp((x)),beta_price_plus_fe);
-%sum_exps = exp_beta_price_plus_fe * ones(3,1);
+% Bootstrap standard errors
+bstrap_reps = 1000;
 
-%ll_per_obs =  betahat * p_of_choice + fe_of_choice - log_sum_exp;
-%ll_sum = sum(ll_per_obs,1);
+bstrap_id = ceil(rand(nsit,bstrap_reps)*nsit);
+bstrap_caseid = sort(repmat(bstrap_id,nopt,1)); % Choice situation id
+bstrap_output = zeros(bstrap_reps,columns(x0));
+
+prodnumber = repmat([1 2 3]',nsit,1);
+
+for i = 1:bstrap_reps;
+    %Need Bstrap Choice as Well
+    this_rep_ids = bstrap_caseid(:,i);
+    this_rep_rowselect = max(prodnumber) * (this_rep_ids- 1) + prodnumber;
+    this_rep_price = price(this_rep_rowselect,1);
+    this_rep_u = u(this_rep_rowselect,1);
+
+    % Find max utility
+    this_rep_max_u = accumarray(this_rep_ids,this_rep_u,[],@max);
+    this_rep_choice = (max_u(this_rep_ids)==this_rep_u);
+
+    options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
+    [this_rep_estimate,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll3(x0,caseid,this_rep_choice,this_rep_price),x0,options);
+
+    bstrap_output(i,1) = this_rep_estimate(1,1);
+    bstrap_output(i,2) = this_rep_estimate(1,2);
+    bstrap_output(i,3) = this_rep_estimate(1,3);
+    bstrap_output(i,4) = this_rep_estimate(1,4);
+    
+end;
 
 
-%One-Time Without Giving the Optimizer the F.O.C.
-[x,fval] = fminunc(ll3,x0);
-
- options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
-[estimate,log_like,exitflag,output,Gradient,Hessian] = fminunc(ll3,x0,options);
 
 
 
@@ -180,8 +213,6 @@ x0 = [betahat, xi1hat, xi2hat, xi3hat];
 
 
 
-
-%Feed in Gradient
 
 
 
