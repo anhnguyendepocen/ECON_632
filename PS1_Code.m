@@ -136,12 +136,12 @@ nopt = 3; % number of options in each choice situation
 caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
 
 % Set parameters
-beta = -18;
+beta = 4;
 xi = [12 25 29];
 xi = xi - mean(xi);
 
 % Simulate x (prices)
-price = random('norm', 10, 10,[nsit*nopt,1]);
+price = random('lognorm', 1, .8,[nsit*nopt,1]);
 
 % Create Product FEs
 prod_fe = repmat(xi',nsit,1);
@@ -207,10 +207,49 @@ end;
 
 
 
+%% 4_MLE_Utility with Random Coefs
+%%%%%%%%
+%3. MLE Estimation of Utility with Random Coefs
+%%%%%%%% 
 
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     SIMULATE DATA
+%%%%%%%%%%%%%%%%%%%%%%%%
+%Need to additional simulate beta
 
+betabar = 4;
+betavar = 1;
 
+betanorm = random('norm', betabar, betavar,[nsit,1]);
+nsit_nopt = (1:(nsit*nopt))';
+take_beta = ceil(nsit_nopt/3);
+betanorm_rep = betanorm(take_beta,:);
 
+% Utility
+u = betanorm_rep.*price + prod_fe + random('ev', 0, 1,[nsit*nopt,1]);
+
+% Find max utility
+max_u = accumarray(caseid,u,[],@max);
+choice = (max_u(caseid)==u);
+
+%Find price chosen for use in log likelihood
+price_chosen = price(choice == 1);
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     RUN LOGIT
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Set starting values
+betahat = 0;
+batvarhat = 1;
+xi1hat = 0;
+xi2hat = 0;
+xi3hat = 0;
+x0 = [betahat batvarhat xi1hat xi2hat xi3hat];
+
+%Optimize Log Likelihood
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
+[estimate,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll3(x0,caseid,choice,price),x0,options);
 
 
 

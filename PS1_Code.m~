@@ -136,12 +136,12 @@ nopt = 3; % number of options in each choice situation
 caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
 
 % Set parameters
-beta = -18;
+beta = 14;
 xi = [12 25 29];
 xi = xi - mean(xi);
 
 % Simulate x (prices)
-price = random('norm', 10, 10,[nsit*nopt,1]);
+price = random('lognorm', 10, 2,[nsit*nopt,1]);
 
 % Create Product FEs
 prod_fe = repmat(xi',nsit,1);
@@ -206,6 +206,19 @@ end;
 
 
 
+
+%% 4_MLE_Utility with Random Coefs
+%%%%%%%%
+%3. MLE Estimation of Utility with Random Coefs
+%%%%%%%% 
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     SIMULATE DATA
+%%%%%%%%%%%%%%%%%%%%%%%%
+%Need to additional simulate beta
+
+betabar = 14;
+betavar = 3;
 
 
 
