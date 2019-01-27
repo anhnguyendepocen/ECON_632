@@ -125,7 +125,6 @@ accum_out = rm_accumarray(subs,rand_vector);
 %3. MLE Estimation of Utility
 %%%%%%%% 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%
 %     SIMULATE DATA
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -136,12 +135,12 @@ nopt = 3; % number of options in each choice situation
 caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
 
 % Set parameters
-beta = 14;
+beta = 4;
 xi = [12 25 29];
-xi = xi - mean(xi);
+%xi = xi - mean(xi);
 
 % Simulate x (prices)
-price = random('lognorm', 10, 2,[nsit*nopt,1]);
+price = random('lognorm', 1, .8,[nsit*nopt,1]);
 
 % Create Product FEs
 prod_fe = repmat(xi',nsit,1);
@@ -153,7 +152,7 @@ u = beta*price + prod_fe + random('ev', 0, 1,[nsit*nopt,1]);
 max_u = accumarray(caseid,u,[],@max);
 choice = (max_u(caseid)==u);
 
-
+%%
 %%%%%%%%%%%%%%%%%%%%%%%%
 %     RUN LOGIT
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -167,7 +166,7 @@ x0 = [betahat xi1hat xi2hat xi3hat];
 
 %Optimize Log Likelihood
 options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
-[estimate,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll3(x0,caseid,choice,price),x0,options);
+[estimate3,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll3(x0,caseid,choice,price),x0,options);
 
 % Calcuate standard errors
 cov_Hessian = inv(Hessian);
@@ -209,7 +208,7 @@ end;
 
 %% 4_MLE_Utility with Random Coefs
 %%%%%%%%
-%3. MLE Estimation of Utility with Random Coefs
+%4. MLE Estimation of Utility with Random Coefs
 %%%%%%%% 
 
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -217,17 +216,120 @@ end;
 %%%%%%%%%%%%%%%%%%%%%%%%
 %Need to additional simulate beta
 
-betabar = 14;
-betavar = 3;
+betabar = 4;
+betavar = 1.5;
+
+betanorm = random('norm', betabar, betavar,[nsit,1]);
+nsit_nopt = (1:(nsit*nopt))';
+take_beta = ceil(nsit_nopt/3);
+betanorm_rep = betanorm(take_beta,:);
+
+% Utility
+u = betanorm_rep.*price + prod_fe + random('ev', 0, 1,[nsit*nopt,1]);
+
+% Find max utility
+max_u = accumarray(caseid,u,[],@max);
+choice = (max_u(caseid)==u);
+
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     RUN LOGIT: USING QUADV
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Set starting values
+betahat = 0;
+betavarhat = 1;
+xi1hat = 0;
+xi2hat = 0;
+xi3hat = 0;
+x0 = [betahat betavarhat xi1hat xi2hat xi3hat];
+
+%Optimize Log Likelihood
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-12,'TolX',1e-12,'Diagnostics','on'); 
+tic;
+[estimate4a,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll4a(x0,caseid,choice,price),x0,options);
+toc;
+toc4a = toc;
+
+%%
+%4b
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     RUN LOGIT: USING MONTE CARLO DRAWS
+%%%%%%%%%%%%%%%%%%%%%%%%
+betahat = 0;
+betavarhat = 1;
+xi1hat = 0;
+xi2hat = 0;
+xi3hat = 0;
+x0 = [betahat betavarhat xi1hat xi2hat xi3hat];
+
+%Get Quadrature Points for Monte Carlo
+sims = 500;
+quadp_MC = random('norm', 0, 1,[1,sims]);
+quadw_MC = repmat((1/sims),1,sims);
+
+%Optimize Log Likelihood
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-12,'TolX',1e-12,'Diagnostics','on'); 
+tic;
+[estimate4b,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll4b(x0,caseid,choice,price,quadp_MC,quadw_MC),x0,options);
+toc;
+toc4b = toc;
+
+%%
+%4c
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     RUN LOGIT: USING SPARSE GRID POINTS
+%%%%%%%%%%%%%%%%%%%%%%%%
+betahat = 0;
+betavarhat = 1;
+xi1hat = 0;
+xi2hat = 0;
+xi3hat = 0;
+x0 = [betahat betavarhat xi1hat xi2hat xi3hat];
+
+%Get Quadrature Points for Sparse Grids
+[quadp_sg , quadw_sg] = nwspgr('KPN',1,4);
+
+%Optimize Log Likelihood
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-12,'TolX',1e-12,'Diagnostics','on'); 
+tic;
+[estimate4c,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll4c(x0,caseid,choice,price,quadp_sg',quadw_sg'),x0,options);
+toc;
+toc4c = toc;
+
+%% Aggregate Data (Berry 1994 style)
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%     USE SIMILATED DATA FROM 3: CALC MARKET SHARES, AVERAGE PRICES; CREATE
+%     INSTRUMENT
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%Calc Market Shares and Prices in Markets
+%(Arbitrarily) create markets
+market = ceil((1:nsit)/100)';
+
+%find choice by id
+nopt_rep = repmat((1:nopt)',nsit,1);
+%Market Shares
+choice_per_sit = accumarray(caseid, choice .* nopt_rep, [],@(x) max(x) );
+
+market_shares = ones(max(market) * nopt,1);
+
+for i = 1: nopt;
+    out_index = (i:nopt: max(market) * nopt - nopt + i)';
+    chose_prod_i = choice_per_sit == i;
+    market_shares(out_index,:) = accumarray(market, chose_prod_i)  ;
+    
+    price_prod_i = 
+    
+end;
 
 
 
 
 
 
-
-
-
+market_shares = 
 
 
 

@@ -9,7 +9,7 @@ function [log_like] = ll3(x0,caseid,choice,price)
     % Log likelihood
     V_exp = exp(V);
     V_chosen = V_exp(choice==1);
-    V_sum=accumarray(caseid,V_exp);
+    V_sum=accumarray(caseid,V_exp) + 1;
     like_vec = (V_chosen./V_sum);
     log_like = -sum(log(like_vec));
 end
