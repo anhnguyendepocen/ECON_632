@@ -306,30 +306,33 @@ toc4c = toc;
 
 %%%%Calc Market Shares and Prices in Markets
 %(Arbitrarily) create markets
-market = ceil((1:nsit)/100)';
+msize = 100;
+market = ceil( (1 : (nsit * nopt))' / (msize * nopt) );
 
 %find choice by id
 nopt_rep = repmat((1:nopt)',nsit,1);
-%Market Shares
-choice_per_sit = accumarray(caseid, choice .* nopt_rep, [],@(x) max(x) );
 
-market_shares = ones(max(market) * nopt,1);
+market_prod_id = (market - 1) * nopt + nopt_rep;
 
-for i = 1: nopt;
-    out_index = (i:nopt: max(market) * nopt - nopt + i)';
-    chose_prod_i = choice_per_sit == i;
-    market_shares(out_index,:) = accumarray(market, chose_prod_i)  ;
-    
-    price_prod_i = 
-    
-end;
+market_share = accumarray(market_prod_id, choice) / 100;
+avg_market_prices = accumarray(market_prod_id, price) / 100; 
 
+log_market_share = log(market_share);
 
+%%%%Create Instrument
+price_instrument = avg_market_prices .* .5 + random('norm', 2, 1, [rows(avg_market_prices), 1]);
 
+alpha_iv = inv(price_instrument' * avg_market_prices) * (price_instrument' * log_market_share); 
 
+%%%%Add product FE
 
+prod_fe = horzcat( rep( [ 1 0 0]', rows
 
-market_shares = 
+z_iv = horzcat(price_instrument, prod_fe);
+x_iv = horzcat(avg_market_prices, prod_fe);
+
+alpha_iv_fe = inv(z_iv' * x_iv) * (z_iv' * log_market_share); 
+
 
 
 

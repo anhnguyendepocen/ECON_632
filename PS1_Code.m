@@ -321,11 +321,21 @@ log_market_share = log(market_share);
 
 %%%%Create Instrument
 price_instrument = avg_market_prices .* .5 + random('norm', 2, 1, [rows(avg_market_prices), 1]);
+price_instrument_intercept = horzcat( repmat([ 1 ], rows(price_instrument), 1), price_instrument);
 
-alpha_iv = inv(price_instrument' * avg_market_prices) * (price_instrument' * log_market_share); 
+avg_market_prices_intercept = horzcat( repmat([ 1 ], rows(avg_market_prices), 1), avg_market_prices);
 
+alpha_iv = inv(price_instrument_intercept' * avg_market_prices_intercept) * (price_instrument_intercept' * log_market_share); 
 
+%%%%Add product FE
 
+prod_fe = horzcat( repmat( [ 1 0 0]', rows(avg_market_prices) / 3, 1) , ...
+                    repmat( [ 0 1 0]', rows(avg_market_prices) / 3, 1) );
+
+z_iv = horzcat(price_instrument_intercept, prod_fe);
+x_iv = horzcat(avg_market_prices_intercept, prod_fe);
+
+alpha_iv_fe = inv(z_iv' * x_iv) * (z_iv' * log_market_share); 
 
 
 
