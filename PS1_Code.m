@@ -1,8 +1,9 @@
 %Created by RM on 2019.01.12 for ECON 632
 %Part II: Programming
+rng('default');
+rng(632632);
 
-rng(632632632);
-
+%%
 %%%%%%%%
 %1. Underflow and Overflow
 %%%%%%%%
@@ -24,7 +25,7 @@ lowerbound_over = 0;
 upperbound_over = val_over;
 midpoint_over = (upperbound_over + lowerbound_over) / 2;
 midlast_over = 0;
-first = 1
+first = 1;
 tol = 10^(-14);
 
 while abs(midpoint_over-midlast_over) > tol;
@@ -39,9 +40,9 @@ while abs(midpoint_over-midlast_over) > tol;
 
     test_mid_over = log(exp(midpoint_over));
     if midpoint_over == test_mid_over
-        lowerbound_over = midpoint_over
+        lowerbound_over = midpoint_over;
     else
-        upperbound_over = midpoint_over
+        upperbound_over = midpoint_over;
     end;
     
 end;
@@ -56,9 +57,9 @@ while loop_under > 0
         val_test = log(exp(val_under));
         if val_test ~= val_under
                loop_under = -1;
-        end;
+        end
         
-end;
+end
 
 lowerbound_under = val_under;
 upperbound_under = 0;
@@ -71,8 +72,8 @@ tol = 10^(-14);
 while abs(midpoint_under-midlast_under) > tol;
     
  if first > 0 
-        midlast_under = 1
-        first = -1
+        midlast_under = 1;
+        first = -1;
     else
         midlast_under = midpoint_under;
     end;
@@ -80,9 +81,9 @@ while abs(midpoint_under-midlast_under) > tol;
     
     test_mid_under = log(exp(midpoint_under));
     if midpoint_under == test_mid_under
-        upperbound_under = midpoint_under
+        upperbound_under = midpoint_under;
     else
-        lowerbound_under = midpoint_under
+        lowerbound_under = midpoint_under;
     end; 
 
 end;
@@ -105,7 +106,7 @@ rand_exp_upper = round(bound_over)+100;
 rand_for_exp = randi([rand_exp_lower rand_exp_upper],1,200);
 max_rand = max(rand_for_exp);
 
-overflow_safe = max_rand + log(exp(rand_for_exp - max_rand))
+overflow_safe = max_rand + log(exp(rand_for_exp - max_rand));
 verify_identical = min(overflow_safe == rand_for_exp) * 1;
 
 %% 2_Accumarray
@@ -135,8 +136,9 @@ nopt = 3; % number of options in each choice situation
 caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
 
 % Set parameters
-beta = 4;
-xi = [12 25 29];
+beta = -.2;
+xi = [1.2 2.5 2.9];
+xi = xi - mean(xi);
 %xi = xi - mean(xi);
 
 % Simulate x (prices)
@@ -146,11 +148,11 @@ price = random('lognorm', 1, .8,[nsit*nopt,1]);
 prod_fe = repmat(xi',nsit,1);
 
 % Utility
-u = beta*price + prod_fe + random('ev', 0, 1,[nsit*nopt,1]);
+u3 = beta*price + prod_fe + random('ev', 0, 1,[nsit*nopt,1]);
 
 % Find max utility
-max_u = accumarray(caseid,u,[],@max);
-choice = (max_u(caseid)==u);
+max_u3 = accumarray(caseid,u3,[],@max);
+choice3 = (max_u3(caseid)==u3);
 
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -166,10 +168,10 @@ x0 = [betahat xi1hat xi2hat xi3hat];
 
 %Optimize Log Likelihood
 options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
-[estimate3,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll3(x0,caseid,choice,price),x0,options);
+[estimate3,log_like,exitflag,output,Gradient,Hessian3] = fminunc(@(x0)ll3(x0,caseid,choice3,price),x0,options);
 
 % Calcuate standard errors
-cov_Hessian = inv(Hessian);
+cov_Hessian = inv(Hessian3);
 std_c = sqrt(diag(cov_Hessian));
 %t_stat = estimator_big./std_c;
 
@@ -203,6 +205,10 @@ for i = 1:bstrap_reps;
     
 end;
 
+bstrap_means = repmat(mean(bstrap_output),bstrap_reps,1);
+bstrap_demeaned = bstrap_output - bstrap_means;
+bstrap_demeaned_squared = bstrap_demeaned .^2;
+bstrap_se = sum(bstrap_demeaned_squared) * (1/(bstrap_reps - 1));
 
 
 
@@ -216,8 +222,8 @@ end;
 %%%%%%%%%%%%%%%%%%%%%%%%
 %Need to additional simulate beta
 
-betabar = 4;
-betavar = 1.5;
+betabar = -.2;
+betavar = .05;
 
 betanorm = random('norm', betabar, betavar,[nsit,1]);
 nsit_nopt = (1:(nsit*nopt))';
@@ -306,7 +312,7 @@ toc4c = toc;
 
 %%%%Calc Market Shares and Prices in Markets
 %(Arbitrarily) create markets
-msize = 100;
+msize = 50;
 market = ceil( (1 : (nsit * nopt))' / (msize * nopt) );
 
 %find choice by id
@@ -314,28 +320,27 @@ nopt_rep = repmat((1:nopt)',nsit,1);
 
 market_prod_id = (market - 1) * nopt + nopt_rep;
 
-market_share = accumarray(market_prod_id, choice) / 100;
-avg_market_prices = accumarray(market_prod_id, price) / 100; 
+market_share = accumarray(market_prod_id, choice3) / msize;
+avg_market_prices = accumarray(market_prod_id, price) / msize; 
 
-log_market_share = log(market_share);
+%Create Outside Option
+min_market_share = min(market_share);
+market_share_less_outside = market_share - (min_market_share / 6);
+log_market_share_less_out = log(market_share_less_outside) - log(min_market_share/2);
 
 %%%%Create Instrument
-price_instrument = avg_market_prices .* .5 + random('norm', 2, 1, [rows(avg_market_prices), 1]);
-price_instrument_intercept = horzcat( repmat([ 1 ], rows(price_instrument), 1), price_instrument);
-
-avg_market_prices_intercept = horzcat( repmat([ 1 ], rows(avg_market_prices), 1), avg_market_prices);
-
-alpha_iv = inv(price_instrument_intercept' * avg_market_prices_intercept) * (price_instrument_intercept' * log_market_share); 
+price_instrument = avg_market_prices + random('norm', 0, 1, [rows(avg_market_prices), 1]);
 
 %%%%Add product FE
 
 prod_fe = horzcat( repmat( [ 1 0 0]', rows(avg_market_prices) / 3, 1) , ...
-                    repmat( [ 0 1 0]', rows(avg_market_prices) / 3, 1) );
+                    repmat( [ 0 1 0]', rows(avg_market_prices) / 3, 1) , ...
+                    repmat( [ 0 0 1]', rows(avg_market_prices) / 3, 1) ) ;
 
-z_iv = horzcat(price_instrument_intercept, prod_fe);
-x_iv = horzcat(avg_market_prices_intercept, prod_fe);
+z_iv = horzcat(price_instrument, prod_fe);
+x_iv = horzcat(avg_market_prices, prod_fe);
 
-alpha_iv_fe = inv(z_iv' * x_iv) * (z_iv' * log_market_share); 
+alpha_iv_fe = inv(z_iv' * x_iv) * (z_iv' * log_market_share_less_out); 
 
 
 

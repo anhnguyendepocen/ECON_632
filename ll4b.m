@@ -18,7 +18,7 @@ function [log_like] = ll4b(x0,caseid,choice,price,qp,qw)
    choice_numerator = exp(qp_test .* price_chosen + fe_chosen) ;
    for_choice_denominator = exp(qp_test .* price + prod_fe_test);
    [xx, yy] = ndgrid(caseid,1:size(qp_test,2));
-   choice_denominator = accumarray([xx(:) yy(:)],for_choice_denominator(:)) + 1;
+   choice_denominator = accumarray([xx(:) yy(:)],for_choice_denominator(:));
    choice_MC = choice_numerator ./ choice_denominator;
    
    %sum_choice_MC = sum(choice_MC')' ./ size(qp_test,2);
