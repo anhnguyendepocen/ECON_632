@@ -130,19 +130,18 @@ accum_out = rm_accumarray(subs,rand_vector);
 %     SIMULATE DATA
 %%%%%%%%%%%%%%%%%%%%%%%%
 
-
 nsit = 5000; % number of choice situations
 nopt = 3; % number of options in each choice situation
 caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
 
 % Set parameters
-beta = -.2;
-xi = [1.2 2.5 2.9];
-xi = xi - mean(xi);
+beta = -.5;
+xi = [2.9 2.5 1.2];
+xi = xi - min(xi);
 %xi = xi - mean(xi);
 
 % Simulate x (prices)
-price = random('lognorm', 1, .8,[nsit*nopt,1]);
+price = random('lognorm', .1, 1,[nsit*nopt,1]);
 
 % Create Product FEs
 prod_fe = repmat(xi',nsit,1);
@@ -161,20 +160,21 @@ choice3 = (max_u3(caseid)==u3);
 
 % Set starting values
 betahat = 0;
-xi1hat =0;
+xi1hat = 0;
 xi2hat = 0;
 xi3hat = 0;
-x0 = [betahat xi1hat xi2hat xi3hat];
+x0 = [betahat xi1hat xi2hat];
 
 %Optimize Log Likelihood
-options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
-[estimate3,log_like,exitflag,output,Gradient,Hessian3] = fminunc(@(x0)ll3(x0,caseid,choice3,price),x0,options);
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-14,'TolX',1e-14,'Diagnostics','on'); 
+[estimate3,log_like,exitflag,output,Gradient,Hessian3] = fminunc(@(x)ll3([x],caseid,choice3,price),x0,options);
 
 % Calcuate standard errors
 cov_Hessian = inv(Hessian3);
 std_c = sqrt(diag(cov_Hessian));
 %t_stat = estimator_big./std_c;
 
+%%
 % Bootstrap standard errors
 bstrap_reps = 1000;
 
@@ -189,26 +189,27 @@ for i = 1:bstrap_reps;
     this_rep_ids = bstrap_caseid(:,i);
     this_rep_rowselect = max(prodnumber) * (this_rep_ids- 1) + prodnumber;
     this_rep_price = price(this_rep_rowselect,1);
-    this_rep_u = u(this_rep_rowselect,1);
+    %this_rep_u = u(this_rep_rowselect,1);
 
     % Find max utility
-    this_rep_max_u = accumarray(this_rep_ids,this_rep_u,[],@max);
-    this_rep_choice = (max_u(this_rep_ids)==this_rep_u);
-
-    options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
-    [this_rep_estimate,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll3(x0,caseid,this_rep_choice,this_rep_price),x0,options);
+    %this_rep_max_u = accumarray(this_rep_ids,this_rep_u,[],@max);
+    %this_rep_choice = (max_u(this_rep_ids)==this_rep_u);
+    this_rep_choice = choice3(this_rep_rowselect);
+    
+    x0 = [betahat xi1hat xi2hat];
+    %options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-6,'TolX',1e-6,'Diagnostics','on'); 
+    [this_rep_estimate,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x)ll3(x,caseid,this_rep_choice,this_rep_price),x0,options);
 
     bstrap_output(i,1) = this_rep_estimate(1,1);
     bstrap_output(i,2) = this_rep_estimate(1,2);
     bstrap_output(i,3) = this_rep_estimate(1,3);
-    bstrap_output(i,4) = this_rep_estimate(1,4);
     
 end;
 
 bstrap_means = repmat(mean(bstrap_output),bstrap_reps,1);
 bstrap_demeaned = bstrap_output - bstrap_means;
-bstrap_demeaned_squared = bstrap_demeaned .^2;
-bstrap_se = sum(bstrap_demeaned_squared) * (1/(bstrap_reps - 1));
+bstrap_demeaned_squared = bstrap_demeaned .^ 2;
+bstrap_se = sqrt((sum(bstrap_demeaned_squared) * (1/(bstrap_reps - 1))))';
 
 
 
@@ -222,8 +223,8 @@ bstrap_se = sum(bstrap_demeaned_squared) * (1/(bstrap_reps - 1));
 %%%%%%%%%%%%%%%%%%%%%%%%
 %Need to additional simulate beta
 
-betabar = -.2;
-betavar = .05;
+betabar = -.5;
+betavar = .2;
 
 betanorm = random('norm', betabar, betavar,[nsit,1]);
 nsit_nopt = (1:(nsit*nopt))';
@@ -247,13 +248,12 @@ betahat = 0;
 betavarhat = 1;
 xi1hat = 0;
 xi2hat = 0;
-xi3hat = 0;
-x0 = [betahat betavarhat xi1hat xi2hat xi3hat];
+x0 = [betahat betavarhat xi1hat xi2hat];
 
 %Optimize Log Likelihood
-options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-12,'TolX',1e-12,'Diagnostics','on'); 
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-14,'TolX',1e-14,'Diagnostics','on'); 
 tic;
-[estimate4a,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll4a(x0,caseid,choice,price),x0,options);
+[estimate4a,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x)ll4aalt(x(1:4),caseid,choice,price),x0,options);
 toc;
 toc4a = toc;
 
@@ -266,8 +266,7 @@ betahat = 0;
 betavarhat = 1;
 xi1hat = 0;
 xi2hat = 0;
-xi3hat = 0;
-x0 = [betahat betavarhat xi1hat xi2hat xi3hat];
+x0 = [betahat betavarhat xi1hat xi2hat];
 
 %Get Quadrature Points for Monte Carlo
 sims = 500;
@@ -275,9 +274,9 @@ quadp_MC = random('norm', 0, 1,[1,sims]);
 quadw_MC = repmat((1/sims),1,sims);
 
 %Optimize Log Likelihood
-options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-12,'TolX',1e-12,'Diagnostics','on'); 
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-14,'TolX',1e-14,'Diagnostics','on'); 
 tic;
-[estimate4b,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll4b(x0,caseid,choice,price,quadp_MC,quadw_MC),x0,options);
+[estimate4b,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x)ll4b(x,caseid,choice,price,quadp_MC,quadw_MC),x0,options);
 toc;
 toc4b = toc;
 
@@ -290,8 +289,7 @@ betahat = 0;
 betavarhat = 1;
 xi1hat = 0;
 xi2hat = 0;
-xi3hat = 0;
-x0 = [betahat betavarhat xi1hat xi2hat xi3hat];
+x0 = [betahat betavarhat xi1hat xi2hat];
 
 %Get Quadrature Points for Sparse Grids
 [quadp_sg , quadw_sg] = nwspgr('KPN',1,4);
@@ -299,7 +297,7 @@ x0 = [betahat betavarhat xi1hat xi2hat xi3hat];
 %Optimize Log Likelihood
 options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-12,'TolX',1e-12,'Diagnostics','on'); 
 tic;
-[estimate4c,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x0)ll4c(x0,caseid,choice,price,quadp_sg',quadw_sg'),x0,options);
+[estimate4c,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x)ll4c(x,caseid,choice,price,quadp_sg',quadw_sg'),x0,options);
 toc;
 toc4c = toc;
 
@@ -345,12 +343,6 @@ alpha_iv_fe = inv(z_iv' * x_iv) * (z_iv' * log_market_share_less_out);
 
 
 
-
-
-
-
-
-    
     
 
 
