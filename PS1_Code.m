@@ -135,9 +135,11 @@ nopt = 3; % number of options in each choice situation
 caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
 
 % Set parameters
-beta = -.5;
-xi = [2.9 2.5 1.2];
+beta = -5;
+xi = [12 5 0];
 xi = xi - min(xi);
+%xi = [2.9 2.5 1.2];
+%xi = xi - min(xi);
 %xi = xi - mean(xi);
 
 % Simulate x (prices)
@@ -147,7 +149,7 @@ price = random('lognorm', .1, 1,[nsit*nopt,1]);
 prod_fe = repmat(xi',nsit,1);
 
 % Utility
-u3 = beta*price + prod_fe + random('ev', 0, 1,[nsit*nopt,1]);
+u3 = beta*price + prod_fe + random('ev', 0, 1,[nsit*nopt,1]) ;
 
 % Find max utility
 max_u3 = accumarray(caseid,u3,[],@max);
