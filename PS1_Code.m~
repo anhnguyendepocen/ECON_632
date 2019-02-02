@@ -317,10 +317,10 @@ nopt = 3; % number of options in each choice situation
 nopt_rep = repmat((1:nopt)',nsit,1);
 msize = 50;
 
-%Make beta small, xi larger for the purpose of getting reasonable outside option
-beta = -3;
+%Make beta large, xi larger for the purpose of getting reasonable outside option
+beta = -5;
 xi = [25 12 0];
-xi = xi / 8 + 4;
+xi = xi / 10 + 8;
 
 %xi = xi - min(xi);
 %xi = [2.9 2.5 1.2];
@@ -332,7 +332,6 @@ prod_fe = repmat(xi',nsit,1);
 
 %prices
 price = random('lognorm', .1, 1,[nsit*nopt,1]);
-market = ceil( (1 : (nsit * nopt))' / (msize * nopt) );
 market_prod_id = (market - 1) * nopt + nopt_rep;
 avg_market_prices = accumarray(market_prod_id, price) / msize; 
 
@@ -361,6 +360,9 @@ choice5_with_outside = (max_u5_with_outside(caseid)==u5);
 %check_outside = accumarray(caseid,choice5_with_outside);
 
 %%%%Calc Market Shares and Prices in Markets
+%(Arbitrarily) create markets
+market = ceil( (1 : (nsit * nopt))' / (msize * nopt) );
+
 %find choice by id
 
 market_share = accumarray(market_prod_id, choice5_with_outside) / msize;
@@ -403,10 +405,11 @@ second_stage = inv(x_second_iv' * x_second_iv) * (x_second_iv' * log_market_shar
 x_iv = horzcat(avg_market_prices, prod_fe);
 H0_hat = inv((1/rows(x_iv)) * x_iv' * (z_iv * inv(z_iv' * z_iv) * z_iv') * x_iv);
 epsilon_no0 = log_market_share_less_out_no0 - x_second_iv * second_stage;
-V0_hat =(1/rows(x_iv))^2* x_iv' *  (z_iv * inv(z_iv' * z_iv) * z_iv') * (epsilon_no0' * epsilon_no0) * (z_iv * inv(z_iv' * z_iv) * z_iv') * x_iv;
-Var_hat =(1/rows(x_iv)) * H0_hat * V0_hat * H0_hat;
+V0_hat = x_iv' *  (z_iv * inv(z_iv' * z_iv) * z_iv') * (epsilon_no0' * epsilon_no0) * (z_iv * inv(z_iv' * z_iv) * z_iv') * x_iv;
+Var_hat = H0_hat * V0_hat * H0_hat;
 stdev_hat = sqrt(diag(Var_hat));
 
+test = epsilon_no0 * epsilon_no0';
 
 %%%%Try Throwing Out Markets with Zeros
 market_has_zero =  accumarray(market_id, market_share, [], @min);
@@ -437,12 +440,9 @@ second_stage_drop0 = inv(x_second_iv_drop0' * x_second_iv_drop0) * (x_second_iv_
 x_iv_drop0 = horzcat(avg_market_prices_drop0, prod_fe_drop0);
 H0_hat_drop0 = inv( (1/rows(x_iv_drop0)) * x_iv_drop0' * (z_iv_drop0 * inv(z_iv_drop0' * z_iv_drop0) * z_iv_drop0') * x_iv_drop0);
 epsilon_drop0 = log_market_share_less_out_drop0 - x_second_iv_drop0 * second_stage_drop0;
-V0_hat_drop0 = (1/rows(x_iv_drop0))^2 * x_iv_drop0' *  (z_iv_drop0 * inv(z_iv_drop0' * z_iv_drop0) * z_iv_drop0') * (epsilon_no0' * epsilon_no0) ...
+V0_hat_drop0 = 1/rows(x_iv_drop0) * x_iv_drop0' *  (z_iv_drop0 * inv(z_iv_drop0' * z_iv_drop0) * z_iv_drop0') * (epsilon_no0' * epsilon_no0) ...
     * (z_iv_drop0 * inv(z_iv_drop0' * z_iv_drop0) * z_iv_drop0') * x_iv_drop0;
-Var_hat_drop0 =1/rows(x_iv_drop0) * H0_hat_drop0 * V0_hat_drop0 * H0_hat_drop0;
+Var_hat_drop0 = H0_hat_drop0 * V0_hat_drop0 * H0_hat_drop0;
 stdev_hat_drop0 = sqrt(diag(Var_hat_drop0));
 
 stdev_hat_drop0
-
-(beta - second_stage(1,1))/stdev_hat(1,1)
-(beta - second_stage_drop0(1,1))/stdev_hat_drop0(1,1)
