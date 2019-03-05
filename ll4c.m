@@ -12,7 +12,6 @@ function [log_like] = ll4c(x,caseid,choice,price,qp,qw)
     
    %integrate: 
    qp_test = qp * sqrt(betavar_test) + betabar_test;
-   %beta_MC = random('norm', betabar_test, betavar_test,[1,500]);
    
    %find value for each value of beta MC
    choice_numerator = exp(qp_test .* price_chosen + fe_chosen) ;
@@ -20,8 +19,6 @@ function [log_like] = ll4c(x,caseid,choice,price,qp,qw)
    [xx, yy] = ndgrid(caseid,1:size(qp_test,2));
    choice_denominator = accumarray([xx(:) yy(:)],for_choice_denominator(:));
    choice_quad = choice_numerator ./ choice_denominator;
-   
-   %sum_choice_MC = sum(choice_MC')' ./ size(qp_test,2);
    sum_choice_quad = sum((choice_quad .* qw)')';
    
    %find log likelihood

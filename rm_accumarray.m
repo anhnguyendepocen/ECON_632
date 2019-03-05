@@ -8,7 +8,7 @@ max_col = max(rm_subs(:,2));
 output_mat = zeros(max_row,max_col);
 
     for i = 1:rows(rm_subs)
-        val_use = rm_vals(1,i);
+        val_use = rm_vals(i,1);
 
         output_row = rm_subs(i,1);
         output_col = rm_subs(i,2);

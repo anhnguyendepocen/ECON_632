@@ -1,7 +1,7 @@
 %Created by RM on 2019.01.12 for ECON 632
 %Part II: Programming
-%rng('default');
-rng(632632);
+
+%Dependencies: overflow, rm_accumarray, ll3, ll4a, ll4b, ll4c
 
 %%
 %%%%%%%%
@@ -11,6 +11,7 @@ rng(632632);
 val_over = 0;
 loop_over = 1;
 
+%Get approximation of upper bound
 while loop_over > 0
     
         val_over = val_over + 100;
@@ -21,6 +22,7 @@ while loop_over > 0
         
 end;
 
+%Zoom in on upper bound
 lowerbound_over = 0;
 upperbound_over = val_over;
 midpoint_over = (upperbound_over + lowerbound_over) / 2;
@@ -48,6 +50,7 @@ while abs(midpoint_over-midlast_over) > tol;
 end;
 bound_over = min(midpoint_over,midlast_over);
 
+%Get approximation of lower bound
 val_under = 0;
 loop_under = 1;
 
@@ -61,6 +64,7 @@ while loop_under > 0
         
 end
 
+%Zoom in on lower bound
 lowerbound_under = val_under;
 upperbound_under = 0;
 midpoint_under = (upperbound_under + lowerbound_under) / 2;
@@ -92,33 +96,34 @@ bound_under = max(midpoint_under,midlast_under);
 bound_under
 bound_over
 
-%check_val = log(exp(bound_under));
-%abs(check_val - bound_under)
 
+%% Overflow
 %%%%%%
 %Overflow Safe Computing
 %https://lingpipe-blog.com/2009/06/25/log-sum-of-exponentials/
 %%%%%%
 
-%Create some random numbers near the upper bound:
-rand_exp_lower = round(bound_over)-100;
-rand_exp_upper = round(bound_over)+100;
-rand_for_exp = randi([rand_exp_lower rand_exp_upper],1,200);
-max_rand = max(rand_for_exp);
+%Create some random numbers over the upper bound to test:
+rand_exp_lower = round(bound_over);
+rand_exp_upper = round(bound_over)+500;
+rand_for_check = randi([rand_exp_lower rand_exp_upper], 1, 200 );
 
-overflow_safe = max_rand + log(exp(rand_for_exp - max_rand));
-verify_identical = min(overflow_safe == rand_for_exp) * 1;
+overflow_safe = overflow(rand_for_check);
+verify_identical = min(overflow_safe == rand_for_check) * 1
 
 %% 2_Accumarray
 %%%%%%%%
 %2. Accumarray
 %%%%%%%%
 
-rand_vector = randi([1 10],1,200);
+subs = [ 1 8 5 5 10 8 5 7; 4 9 3 5 1 9 5 3]';
 
-subs = [ 1 8 5 5 10 8 5 ; 4 9 3 5 1 9 5]';
+rand_vector = random('uniform',0,10,[rows(subs),1]);
 
-accum_out = rm_accumarray(subs,rand_vector);
+rm_accum_out = rm_accumarray(subs,rand_vector);
+accum_out = accumarray(subs,rand_vector);
+
+verify_identical = min(rm_accum_out == accum_out) * 1
 
 
 %% 3_MLE_Utility
@@ -136,12 +141,7 @@ caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
 
 % Set parameters
 beta = -5;
-%beta = -.5;
-xi = [10 4.2 0];
-%xi = xi - min(xi);
-%xi = [2.9 2.5 1.2];
-%xi = xi - min(xi);
-%xi = xi - mean(xi);
+xi = [25 12 0];
 
 % Simulate x (prices)
 price = random('lognorm', .1, 1,[nsit*nopt,1]);
@@ -181,7 +181,7 @@ std_c = sqrt(diag(cov_Hessian));
 % Bootstrap standard errors
 bstrap_reps = 1000;
 
-bstrap_id = ceil(rand(nsit,bstrap_reps)*nsit);
+bstrap_id = ceil(random('uniform', 0, 1,[nsit,bstrap_reps])*nsit) ;
 bstrap_caseid = sort(repmat(bstrap_id,nopt,1)); % Choice situation id
 bstrap_output = zeros(bstrap_reps,columns(x0));
 
@@ -192,11 +192,8 @@ for i = 1:bstrap_reps;
     this_rep_ids = bstrap_caseid(:,i);
     this_rep_rowselect = max(prodnumber) * (this_rep_ids- 1) + prodnumber;
     this_rep_price = price(this_rep_rowselect,1);
-    %this_rep_u = u(this_rep_rowselect,1);
 
     % Find max utility
-    %this_rep_max_u = accumarray(this_rep_ids,this_rep_u,[],@max);
-    %this_rep_choice = (max_u(this_rep_ids)==this_rep_u);
     this_rep_choice = choice3(this_rep_rowselect);
     
     x0 = [betahat xi1hat xi2hat];
@@ -209,11 +206,11 @@ for i = 1:bstrap_reps;
     
 end;
 
+%Compute SE from bootstrapped point estimates
 bstrap_means = repmat(mean(bstrap_output),bstrap_reps,1);
 bstrap_demeaned = bstrap_output - bstrap_means;
 bstrap_demeaned_squared = bstrap_demeaned .^ 2;
 bstrap_se = sqrt((sum(bstrap_demeaned_squared) * (1/(bstrap_reps - 1))))';
-
 
 
 %% 4_MLE_Utility with Random Coefs
@@ -229,7 +226,7 @@ bstrap_se = sqrt((sum(bstrap_demeaned_squared) * (1/(bstrap_reps - 1))))';
 betabar = -5;
 betavar = 2;
 
-betanorm = random('norm', betabar, betavar,[nsit,1]);
+betanorm = randn(nsit,1) * sqrt(betavar) + betabar;
 nsit_nopt = (1:(nsit*nopt))';
 take_beta = ceil(nsit_nopt/3);
 betanorm_rep = betanorm(take_beta,:);
@@ -246,7 +243,8 @@ choice = (max_u(caseid)==u);
 %     RUN LOGIT: USING QUADV
 %%%%%%%%%%%%%%%%%%%%%%%%
 
-% Set starting values
+% Set starting values; recall that utility up to normalization so force
+% last fe to be 0
 betahat = 0;
 betavarhat = 1;
 xi1hat = 0;
@@ -295,7 +293,7 @@ xi2hat = 0;
 x0 = [betahat betavarhat xi1hat xi2hat];
 
 %Get Quadrature Points for Sparse Grids
-[quadp_sg , quadw_sg] = nwspgr('KPN',1,8);
+[quadp_sg , quadw_sg] = nwspgr('KPN',1,4);
 
 %Optimize Log Likelihood
 options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-12,'TolX',1e-12,'Diagnostics','on'); 
@@ -304,10 +302,24 @@ tic;
 toc;
 toc4c = toc;
 
+
+%Trying different starting point
+betahat = -1;
+betavarhat = 1;
+xi1hat = 10;
+xi2hat = 5;
+x0 = [betahat betavarhat xi1hat xi2hat];
+
+%Optimize Log Likelihood
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-12,'TolX',1e-12,'Diagnostics','on');
+[estimate4calt,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x)ll4c(x,caseid,choice,price,quadp_sg',quadw_sg'),x0,options);
+
+
+
 %% Aggregate Data (Berry 1994 style)
 
 %%%%%%%%%%%%%%%%%%%%%%%%
-%     USE SIMILATED DATA FROM 3: CALC MARKET SHARES, AVERAGE PRICES; CREATE
+%     USE SIMILATED DATA, SIMILAR CODE FROM 3: CALC MARKET SHARES, AVERAGE PRICES; CREATE
 %     INSTRUMENT
 %%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -317,15 +329,10 @@ nopt = 3; % number of options in each choice situation
 nopt_rep = repmat((1:nopt)',nsit,1);
 msize = 50;
 
-%Make beta small, xi larger for the purpose of getting reasonable outside option
-beta = -3;
-xi = [25 12 0];
-xi = xi / 8 + 4;
-
-%xi = xi - min(xi);
-%xi = [2.9 2.5 1.2];
-%xi = xi - min(xi);
-%xi = xi - mean(xi);
+%Make beta small, xi smaller and flatter for the purpose of getting reasonable outside option
+%
+beta = -1;
+xi = [1 2 3];
 
 % Create Product FEs
 prod_fe = repmat(xi',nsit,1);
@@ -336,17 +343,13 @@ market = ceil( (1 : (nsit * nopt))' / (msize * nopt) );
 market_prod_id = (market - 1) * nopt + nopt_rep;
 avg_market_prices = accumarray(market_prod_id, price) / msize; 
 
-
 % Utility
 avg_market_prices_expand = kron(avg_market_prices, ones(msize,1));
 u5 = beta*avg_market_prices_expand + prod_fe + random('ev', 0, 1,[nsit*nopt,1]) ;
 
 caseid = sort(repmat((1:nsit)',nopt,1)); % Choice situation id
 
-
 sum(u5 > 0)/rows(u5)
-
-%%
 
 % Find max utility
 max_u5 = accumarray(caseid,u5,[],@max);
@@ -357,8 +360,6 @@ choice5 = (max_u5(caseid)==u5);
 val_outside = random('ev', 0, 1,[nsit,1]);
 max_u5_with_outside = max(max_u5,val_outside);
 choice5_with_outside = (max_u5_with_outside(caseid)==u5);
-
-%check_outside = accumarray(caseid,choice5_with_outside);
 
 %%%%Calc Market Shares and Prices in Markets
 %find choice by id
@@ -371,7 +372,7 @@ outside_share_expand = kron(outside_share, [1 1 1]');
 
 sum(outside_share == 0)/rows(outside_share)
 
-%%
+%% Estimate Model: Force Zeros Away from Zero
 %Turn 0s to 10 ^ (-14)
 market_share_no0 = max(market_share,10^(-14));
 outside_share_expand_no0 = max(outside_share_expand,10^(-14));
@@ -407,8 +408,7 @@ V0_hat =(1/rows(x_iv))^2* x_iv' *  (z_iv * inv(z_iv' * z_iv) * z_iv') * (epsilon
 Var_hat =(1/rows(x_iv)) * H0_hat * V0_hat * H0_hat;
 stdev_hat = sqrt(diag(Var_hat));
 
-
-%%%%Try Throwing Out Markets with Zeros
+%%%%Drop Markets with Zero Market Shares
 market_has_zero =  accumarray(market_id, market_share, [], @min);
 market_outside_has_zero = min(market_has_zero,outside_share);
 market_has_zero_expand = kron(market_outside_has_zero, [1 1 1]');
@@ -442,7 +442,10 @@ V0_hat_drop0 = (1/rows(x_iv_drop0))^2 * x_iv_drop0' *  (z_iv_drop0 * inv(z_iv_dr
 Var_hat_drop0 =1/rows(x_iv_drop0) * H0_hat_drop0 * V0_hat_drop0 * H0_hat_drop0;
 stdev_hat_drop0 = sqrt(diag(Var_hat_drop0));
 
+second_stage
+stdev_hat
+second_stage_drop0
 stdev_hat_drop0
 
-(beta - second_stage(1,1))/stdev_hat(1,1)
-(beta - second_stage_drop0(1,1))/stdev_hat_drop0(1,1)
+ci_perc90_no0 = horzcat(second_stage - 1.645 * stdev_hat, second_stage + 1.645 * stdev_hat);
+ci_perc90_drop0 = horzcat(second_stage_drop0 - 1.645 * stdev_hat_drop0, second_stage_drop0 + 1.645 * stdev_hat_drop0);

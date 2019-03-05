@@ -12,7 +12,6 @@ function [log_like] = ll4b(x,caseid,choice,price,qp,qw)
     
    %integrate: Monte Carlo
    qp_test = qp * sqrt(betavar_test) + betabar_test;
-   %beta_MC = random('norm', betabar_test, betavar_test,[1,500]);
    
    %find value for each value of beta MC
    choice_numerator = exp(qp_test .* price_chosen + fe_chosen) ;
