@@ -1,0 +1,88 @@
+%Created by RM on 2019.03.06 for ECON 632
+%Part II: Programming
+
+%Dependencies: overflow, rm_accumarray, ll3, ll4a, ll4b, ll4c
+
+%%
+%%%%%%%%
+%1. Import Data
+%%%%%%%%
+
+data = csvread('/Users/russellmorton/Desktop/Coursework/Winter 2019/ECON 632/Problem Sets/Temp/insurance_data_mod.csv',1,0);
+indiv_id = data(:,1);
+choice_sit = data(:,2);
+year = data(:,5);
+years_enrolled = data(:,6);
+age = data(:,7);
+income = data(:,9);
+risk = data(:,10);
+tool = data(:,11);
+num_plans = data(:,15);
+plan_goes_away = data(:,18);
+chose_min = data(:,19);
+premium_income_q1 = data(:,29);
+premium_income_q2 = data(:,32);
+premium_income_q3 = data(:,35);
+premium_income_q4 = data(:,38);
+quality_risk_q1 = data(:,30);
+quality_risk_q2 = data(:,33);
+quality_risk_q3 = data(:,36);
+quality_risk_q4 = data(:,39);
+coverage_risk_q1 =  data(:,31);
+coverage_risk_q2 =  data(:,34);
+coverage_risk_q3 =  data(:,37);
+coverage_risk_q4 =  data(:,40);
+plan_1 = data(:,41);
+plan_2 = data(:,42);
+plan_3 = data(:,43);
+plan_4 = data(:,44);
+plan_5 = data(:,45);
+plan_6 = data(:,46);
+plan_7 = data(:,47);
+plan_8 = data(:,48);
+plan_9 = data(:,49);
+plan_10 = data(:,50);
+plan_11 = data(:,51);
+
+%%
+%%%%%
+%Turn into variables and datasets for use later in likelihood
+%%%%%
+
+choice = data(:,3) ==  data(:,4); 
+first_year = years_enrolled == 1;
+
+premium_income = horzcat(premium_income_q1, premiu
+
+%%
+%%%%%
+%Set Starting Values for All Parameters 
+%%%%
+
+%alpha = [0 0 0 0];
+alpha_start = [1 1 1 1];
+beta_start = [0 0 0 0];
+gamma_start = [0 0 0 0];
+xi_start = [0 0 0 0 0 0 0 0 0 0];
+
+psi_start = [0 0 0 0 0 0 0 0 0 0 0];
+mu_start = 0;
+sigma2_start = 1;
+
+x0 = horzcat(alpha_start,beta_start,gamma_start,xi_start,psi_start,mu_start,sigma2_start);
+
+%%
+%%%%%
+%MLE
+%%%%%
+
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-14,'TolX',1e-14,'Diagnostics','on'); 
+[estimateplan,log_like,exitflag,output,Gradient,Hessianplan] = fminunc(@(x)llplan(x,choice_sit,choice),x0,options);
+
+%function [log_like] = llplan(alpha,beta,gamma,xi,psi,mu,sigma2,caseid,choice)
+
+
+
+
+
+

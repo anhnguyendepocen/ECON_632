@@ -87,7 +87,7 @@ forv m = `minyear'(1)`maxyear' {
 
 	foreach var of local vars {
 
-			su `var' if year == `m', d
+			quietly: su `var' if year == `m', d
 			
 			replace year_summary = `m' if obs == `counter'
 			replace var_summary = "`var'" if obs == `counter'
@@ -115,17 +115,45 @@ export excel using "$output/SummaryStats_PS2.xlsx", first(var) replace
 
 use "$temp/add_chose_dominated", clear
 
+egen minyear = min(year)
+local minyear = minyear
+egen maxyear = max(year)
+local maxyear = maxyear
+
+bys year indiv_id: egen min_premium = min(premium)
+
+g last_year_plan = .
+
+forv m = `minyear'(1)`maxyear' {
+	local mplus = `m' + 1
+	g last_year = year == `m'
+	bys indiv_id: egen pre_last_year_plan = max(last_year * plan_choice)
+	replace last_year_plan = pre_last_year_plan if year == `mplus'
+	drop last_year
+	drop pre_last_year_plan
+}
+
+replace last_year_plan = . if last_year_plan == 0
+
+bys year indiv_id: egen pre_plan_goes_away = min(abs(last_year_plan - plan_id))
+g plan_goes_away = 0
+replace plan_goes_away = 1 if pre_plan_goes_away > 0 & last_year_plan != .
+
+*sort indiv_id year plan_id
+*browse indiv_id year plan_id plan_choice last_year_plan pre_plan_goes_away plan_goes_away
+
 keep if plan_id == plan_choice
 
-xtset indiv_id year
-
-g last_year_plan = L1.plan_choice
+g chose_min = premium == min_premium
 
 g switch_plan = last_year_plan != plan_choice & last_year_plan != .
+g same_plan = last_year_plan == plan_choice
 
 g num_plans_2 = num_plans^2
 
 g chose_new_dominated = switch_plan * chose_dominated
+
+drop pre_plan_goes_away 
 
 save "$temp/deduped_addvars", replace
 
@@ -137,15 +165,13 @@ use "$temp/deduped_addvars", clear
 g ones = 1
 bys year: egen total_year = sum(ones)
 bys year: egen sum_dom = sum(chose_dominated)
-bys year: egen sum_new_dom = sum(chose_new_dominated)
 drop ones
 
 g perc_dom = sum_dom / total_year
-g perc_new_dom = sum_new_dom / total_year
 
 graph twoway (bar perc_dom year, barw(.4) xtitle("Year") ytitle("Percent") ///
-		title("Percentage of Participants Choosing Dominated Plans") legend( width(100) cols(1) ///
-		lab(1 "Percent Choosing Dominated Plan") ) ///
+		title("Percent of Participants Choosing a Dominated Plan") legend( si(small) cols(1) ///
+		lab(1 "% of Participants Choosing a Dominated Plan") ) ///
 		note("Note: Percent Choosing Dominated Plan represents the percent of participants who chose a dominated plan.", si(vsmall) ) )
 graph export "$output/Dominated_Plan.pdf", as (pdf) replace	
 
@@ -156,7 +182,7 @@ bys year: egen count_switch_plan = sum(switch_plan)
 g perc_switch_plan = count_switch_plan/total_year
 
 graph twoway (bar perc_switch_plan year, barw(.4)  xtitle("Year") ytitle("Percent") ///
-	title("Percentage of Participants Switching Plans") ///
+	title("Percent of Participants Switching Plans") ///
 	note("Note: No data on plan choices prior to 2008 are available; therefore, no participants can be identified as having switched in 2008.", si(vsmall) ) )
 graph export "$output/Switch_Plan.pdf", as (pdf) replace	
 
@@ -164,7 +190,7 @@ g ones = 1
 bys year has_comparison_tool: egen count_year_tool = sum(ones)	
 bys year has_comparison_tool: egen count_switch_plan_by_tool = sum(switch_plan)
 
-g perc_switch_plan_by_tool = count_switch_plan_by_tool/total_year
+g perc_switch_plan_by_tool = count_switch_plan_by_tool/count_year_tool
 bys year: egen perc_switch_plan_with_tool = max(has_comparison_tool * perc_switch_plan_by_tool)
 bys year: egen perc_switch_plan_no_tool = max((1-has_comparison_tool) * perc_switch_plan_by_tool)
 
@@ -176,200 +202,168 @@ g perc_tool = count_tool / total_year
 
 graph twoway (bar perc_switch_plan_no_tool year_no_tool, barw(.4)) (bar perc_switch_plan_with_tool year_tool, barw(.4) ) ///
 	(scatter perc_tool year, msize(small) connect(I) xtitle("Year") ytitle("Percent") ///
-	title("Percentage of Participants Switching Plans:") ///
+	title("Percent of Participants Switching Plans:") ///
 	title("By Access to Comparison Tool", suffix) ///
-	legend( lab(1 "Percent of Participants Switching Without Comparison Tool") ///
-			lab(2 "Percent of Participants Switching With Comparison Tool") ///
-			lab(3 "Percent of Participants With Comparison Tool") cols(1) ) ///
+	legend( si(small) lab(1 "% of Participants Switching Without Comparison Tool") ///
+			lab(2 "% of Participants Switching With Comparison Tool") ///
+			lab(3 "% of Participants With Comparison Tool") cols(1) ) ///
 	note("Note: No data on plan choices prior to 2008 are available; therefore, no participants can be identified as having switched in 2008.", si(vsmall) ) )
 graph export "$output/Switch_Plan_Tool.pdf", as (pdf) replace
 
 
-/* Switching to Dominated Analysis */
+/* Switching to Dominated Plan Analysis */
+
+bys year: egen sum_new_dom = sum(chose_new_dominated)
+g perc_new_dom = sum_new_dom / total_year
 
 g year_dom = year - .2
 g year_new_dom = year + .2
 
 graph twoway (bar perc_dom year_dom, barw(.4)) (bar perc_new_dom year_new_dom, barw(.4) xtitle("Year") ytitle("Percent") ///
-		title("Percentage of Participants Switching to Dominated Plans") legend( width(100) cols(1)  ///
-		lab(1 "Percent Choosing Dominated Plan") lab(2 "Percent Switching to Dominated Plan") ) ///
+		title("Percent of Participants Switching to Dominated Plans") legend( si(small) cols(1)  ///
+		lab(1 "% Choosing a Dominated Plan") lab(2 "% Switching to a Dominated Plan") ) ///
 		note("Note: Percent Choosing Dominated Plan represents the percent of participants who chose a dominated plan.", si(vsmall) ) ///
 		note("Percent Switching to Dominated Plan represents the percent of participants who chose a dominated plan and switched plans.", si(vsmall)  suffix) ///
 		note("No data on plan choices prior to 2008 are available; therefore, no participants can be identified as having switched in 2008.", si(vsmall) suffix) )
 
 graph export "$output/Switch_Dominated_Plan.pdf", as (pdf) replace	
 
-g same_plan = plan_choice == last_year_plan
 bys year: egen dom_same = sum( same_plan * chose_dominated)
 g perc_dom_same = dom_same / sum_dom
 
-
 graph twoway (bar perc_dom_same year, barw(.4)  xtitle("Year") ytitle("Percent") ///
-	title("Percentage of Dominated Plan Selections")  ///
+	title("Percent of Dominated Plan Selections")  ///
 	title("Identical to Previous Year's Selection ", suffix) legend(off) ///
 	note("Note: Bars represent the percent of selections of dominated plans that are identical to the previous years' plan choice.", si(vsmall) ) ///
 	note("No data on plan choices prior to 2008 are available; therefore, no participants can be identified as having switched in 2008.", si(vsmall) suffix) )
+
 graph export "$output/Inertia_Dominated_Plan.pdf", as (pdf) replace	
 
+bys year has_comparison_tool: egen count_switch_dom_by_tool = sum(chose_new_dominated)
+g perc_switch_dom_by_tool = count_switch_dom_by_tool / count_tool
 
-/* Also Graph This by Comparison Tool */
+bys year: egen perc_switch_dom_with_tool = max(has_comparison_tool * perc_switch_dom_by_tool)
+bys year: egen perc_switch_dom_no_tool = max((1-has_comparison_tool) * perc_switch_dom_by_tool)
 
+graph twoway (bar perc_switch_dom_no_tool year_no_tool, barw(.4)) (bar perc_switch_dom_with_tool year_tool, barw(.4) ) ///
+	(scatter perc_tool year, msize(small) connect(I) xtitle("Year") ytitle("Percent") ///
+	title("Percent of Participants Switching to a Dominated Plan:") ///
+	title("By Access to Comparison Tool", suffix) ///
+	legend( si(small) lab(1 "% of Participants Switching to a Dominated Plan Without Comparison Tool") ///
+			lab(2 "% of Participants Switching to a Dominated Plan With Comparison Tool") ///
+			lab(3 "% of Participants With Comparison Tool") cols(1) ) ///
+	note("Note: No data on plan choices prior to 2008 are available; therefore, no participants can be identified as having switched in 2008.", si(vsmall) ) )
 
-*xtset indiv_id year
-*xtreg chose_dominated i.year age sex risk_score income years_enrolled, fe
-reg chose_dominated i.year age sex risk_score income years_enrolled has_comparison_tool  premium plan_service_quality plan_coverage num_plans num_plans_2
-
-*Find that tool matters and that less healthy individuals check more
-/*
-*Investigate Inertia by Seeing What Percent of Chose Dominated Are Just People Who Kept a Plan
-use "$temp/add_chose_dominated", clear
-
-keep indiv_id year plan_choice
-duplicates drop
-
-xtset indiv_id year
-
-g last_year_plan = L1.plan_choice
+graph export "$output/Dom_Switch_Plan_Tool.pdf", as (pdf) replace
 
 
-save "$temp/last_year_plan", replace
+/* Regression Analysis */
 
-use "$temp/add_chose_dominated", clear
+use "$temp/deduped_addvars", clear
 
-merge m:1 indiv_id year plan_choice using "$temp/last_year_plan"
+logit chose_dominated age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 same_plan plan_goes_away i.year if year > 2008
+	regsave age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 same_plan plan_goes_away ///
+	using "$temp/reduced_form_logit", pval addlabel(outcome, "chose_dominated",interacts, "None") replace
+logit switch_plan age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_min i.year if year > 2008 & plan_goes_away == 0
+	regsave age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_min ///
+	using "$temp/reduced_form_logit", pval addlabel(outcome, "switch_plan",interacts, "None") append
+logit chose_new_dominated age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away i.year if year > 2008
+	regsave age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away ///
+	using "$temp/reduced_form_logit", pval addlabel(outcome, "chose_new_dominated",interacts, "None") append
+
+*Disadvantage of Reduced Form: Hard to Compare distance when multiple dominating plans, which occurs
+*Hard to think about price elasticity for higher income
+g risk_score_comp_tool = risk_score * has_comparison_tool
+g num_plans_comp_tool = has_comparison_tool * num_plans
+
+logit switch_plan risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_min i.year if year > 2008 & plan_goes_away == 0
+	regsave risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_min ///
+	using "$temp/reduced_form_logit", pval addlabel(outcome, "switch_plan",interacts, "Yes") append
+logit chose_new_dominated risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away i.year if year > 2008
+	regsave risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away ///
+	using "$temp/reduced_form_logit", pval addlabel(outcome, "chose_new_dominated",interacts, "Yes") append
+
+use "$temp/reduced_form_logit", clear
+
+**TOSTRING FOR EXPORT
+g coef_round = round(coef,.001)
+tostring(coef_round), replace force
+replace coef_round = substr(coef_round,1,strpos(coef_round,".")+3)
+
+g stderr_round = round(stderr,.001)
+tostring(stderr_round), replace force
+replace stderr_round = substr(stderr_round,1,strpos(stderr_round,".")+3)
+
+replace stderr_round = "(" + stderr_round + ")"
+
+replace stderr_round = stderr_round + "*" if pval < .1
+replace stderr_round = stderr_round + "*" if pval < .05
+replace stderr_round = stderr_round + "*" if pval < .01
+
+export excel using "$output/ReducedFormLogit.xlsx", first(var) replace
+
+/* Prepare Data for Export to Matlab */
+
+use "$temp/deduped_addvars", clear
+
+keep indiv_id year num_plans last_year_plan plan_goes_away chose_min same_plan chose_min
+
+save "$temp/mergeon", replace
+
+use "$temp/insurance_data", clear
+
+merge m:1 indiv_id year using "$temp/mergeon"
+
 drop _merge
 
-save "$temp/add_last_year", replace
+drop if year == 2008
 
-use "$temp/add_last_year", clear
+local quartilevars "income risk_score"
 
-g num_plans_2 = num_plans^2
-keep indiv_id year chose_dominated age sex risk_score income years_enrolled has_comparison_tool last_year_plan plan_choice num_plans num_plans_2
+foreach var of local quartilevars {
 
-duplicates drop
+	su `var', d
 
-g chose_new_dominated = chose_dominated == 1 & last_year_plan != plan_choice
-reg chose_new_dominated i.year age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2
+	g `var'_q1 = `var' < r(p25)
+	g `var'_q2 = r(p25) <= `var' & `var' < r(p50)
+	g `var'_q3 = r(p50) <= `var' & `var' < r(p75)
+	g `var'_q4 = r(p75) <= `var' 
+	}
 
-g chose_same = plan_choice == last_year_plan
-reg chose_dominated i.year age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_same
-
-
+forv i = 1(1)4{
+	g premium_income_q`i' = premium * income_q`i'
+	g quality_risk_q`i' = plan_service_quality * risk_score_q`i'
+	g coverage_risk_q`i' = plan_coverage * risk_score_q`i'
+	}
 	
-*Generate by Year and Tool Comparison Percent Choosing Dominated Plan
-use "$temp/add_chose_dominated", clear
+	
+egen min_plan = min(plan_id)
+local minplan = min_plan
+egen max_plan = max(plan_id)
+local maxplan = max_plan
+egen min_year = min(year)
+local minyear = min_year
+egen max_year = max(year)
+local maxyear = max_year
 
-preserve
 
-keep if plan_id == plan_choice
-g ones = 1
-
-
-
-bys year has_comparison_tool: egen consumers_year_tool = sum(ones)
-bys year has_comparison_tool: egen consumers_year_tool_dom = sum(chose_dominated)
-g perc_dom = consumers_year_tool_dom/consumers_year_tool
-
-bys year: egen consumers_year_with_tool = sum(has_comparison_tool)
-bys year: egen consumers_year = sum(ones)
-g perc_tool = consumers_year_with_tool / consumers_year
-
-bys year tool: 
-
-keep indiv_id year consumers_year_tool consumers_year_tool_dom perc_dom perc_tool
-save "$temp/choose_dom", replace
-
-restore
-merge m:1 indiv_id year using "$temp/choose_dom"
-
-save "$temp/merged_data", replace
-
-*Show Results Visually
-
-use "$temp/merged_data", clear
+forv i = `minplan'(1)`maxplan' {
+	forv j = `minyear'(1)`maxyear' {
+		g plan_`i'_`j' = plan_id == `i' & year == `j'
+		egen check_drop = max(plan_`i'_`j')
+		local checkdrop = check_drop
+		if `checkdrop' < 1 {
+			drop plan_`i'_`j'
+		}
+		drop check_drop
+	}
+}
+	
+drop min_plan max_plan min_year max_year
+	
+	
+export delim "$temp/insurance_data_mod.csv", delim(",") replace
  
-keep year has_comparison_tool perc_dom perc_tool
-duplicates drop
-
-g pre_perc_dom_with_tool = perc_dom if has_comparison_tool == 1
-g pre_perc_dom_no_tool = perc_dom if has_comparison_tool == 0
-
-bys year: egen perc_dom_with_tool = max(pre_perc_dom_with_tool)
-bys year: egen perc_dom_no_tool = max(pre_perc_dom_no_tool)
-
-keep year perc_dom_with_tool perc_dom_no_tool perc_tool
-duplicates drop
-
-*graph bar perc_dom_no_tool perc_dom_with_tool, over(year)
-
-graph twoway (bar perc_dom_no_tool perc_dom_with_tool year) 
-
-g year_no_tool = year - .2
-g year_tool = year + .2
-*/
-
-
-bys year has_comparison_tool: egen count_year_tool_dom = sum(chose_dominated)
-bys year has_comparison_tool: egen count_year_tool_switch_dom = sum(chose_new_dominated)
-
-g perc_dom_by_tool = count_year_tool_dom/ count_year_tool
-g perc_dom_switch_by_tool = count_year_tool_switch_dom / count_year_tool
-
-g pre_perc_dom_with_tool = perc_dom_by_tool if has_comparison_tool == 1
-bys year: egen perc_dom_with_tool = max(pre_perc_dom_with_tool)
-drop pre_perc_dom_with_tool
-
-g pre_perc_dom_no_tool = perc_dom_by_tool if has_comparison_tool == 0
-bys year: egen perc_dom_no_tool = max(pre_perc_dom_no_tool)
-drop pre_perc_dom_no_tool
-
-
-g year_no_tool = year - .2
-g year_tool = year + .2
-
-graph twoway (bar perc_dom_no_tool year_no_tool, barw(.4)) (bar perc_dom_with_tool year_tool, barw(.4)) ///
-			(line perc_tool year)
-
-g pre_perc_dom_switch_with_tool = perc_dom_switch_by_tool if has_comparison_tool == 1
-bys year: egen perc_dom_switch_with_tool = max(pre_perc_dom_switch_with_tool)
-drop pre_perc_dom_switch_with_tool
-
-g pre_perc_dom_switch_no_tool = perc_dom_switch_by_tool if has_comparison_tool == 0
-bys year: egen perc_dom_switch_no_tool = max(pre_perc_dom_switch_no_tool)
-drop pre_perc_dom_switch_no_tool
-
-graph twoway (bar perc_dom_switch_no_tool year_no_tool, barw(.4)) (bar perc_dom_switch_with_tool year_tool, barw(.4)) ///
-			(line perc_tool year)
-
-*Percent Of Switchers Who Had Dominated Plan
-xtset indiv_id year
-g had_dominated = L1.chose_dominated
-
-bys year: egen count_switched = sum(switch_plan)
-bys year: egen count_switched_dom = sum(switch_plan * had_dominated)
-
-g perc_switch_dominated = count_switched_dom / count_switched
-
-graph twoway (bar perc_switch_dominated year, barw(.4))
-
-bys year has_comparison_tool: egen count_switched_dom_by_tool = sum(switch_plan * had_dominated)
-g perc_switched_dom_by_tool = count_switched_dom_by_tool / count_year_tool
-
-g pre_perc_switched_dom_with_tool = perc_switched_dom_by_tool if has_comparison_tool == 1
-bys year: egen perc_switched_dom_with_tool = max(pre_perc_switched_dom_with_tool)
-drop pre_perc_switched_dom_with_tool
-
-g pre_perc_switched_dom_no_tool = perc_switched_dom_by_tool if has_comparison_tool == 0
-bys year: egen perc_switched_dom_no_tool = max(pre_perc_switched_dom_no_tool)
-drop pre_perc_switched_dom_no_tool
-
-graph twoway (bar perc_switched_dom_no_tool year_no_tool, barw(.4)) (bar perc_switched_dom_with_tool year_tool, barw(.4)) ///
-			(line perc_tool year)
-
-			
-/* Direct Inertia Graph: Of Those Who Have Dominated, How Many Had Same Plan Last Year */
-
-
 
 
 
