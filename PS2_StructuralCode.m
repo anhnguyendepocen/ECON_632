@@ -17,8 +17,9 @@ age = data(:,7);
 income = data(:,9);
 risk = data(:,10);
 tool = data(:,11);
-coverage = data(:,12);
-quality = data(:,13);
+premium = data(:,12);
+coverage = data(:,13);
+quality = data(:,14);
 num_plans = data(:,15);
 plan_goes_away = data(:,18);
 chose_min = data(:,19);
@@ -116,3 +117,88 @@ x0_2 = horzcat(alpha_start_2,beta_start_2,gamma_start_2,delta_start_2,xi_start_2
 [estimateplan_2] = fminunc(@(x)llplan(x,choice_sit,choice,prem_income,qual_risk,cov_risk,year_dum,prob_vars,plan_vars),x0_2,options);
 
 compare = horzcat(estimateplan',estimateplan_2');
+
+%%
+%%%%%
+%Now check what percent are picking dominated in counterfactual analysis
+%%%%
+
+
+alpha_hat = estimateplan_2(1,1:4);
+beta_hat = estimateplan_2(1,5:8);
+gamma_hat = estimateplan_2(1,9:12);
+delta_hat = estimateplan_2(1,13:15);
+xi_hat = estimateplan_2(1,16:23);
+psi_hat = estimateplan_2(1,24:34);
+mu_hat = estimateplan_2(1,35);
+sigma2_hat = estimateplan_2(1,36);
+
+csvwrite('/Users/russellmorton/Desktop/Coursework/Winter 2019/ECON 632/Problem Sets/Temp/params_hat.csv',estimateplan_2)
+
+
+%%
+%%%%%
+%WRONG: FIRST DO FIRST ACTIVE CHOICE FOR EACH PARTICIPANT;
+%THEN FIGURE OUT WHAT CHOSEN
+%THEN SECOND ACTIVE CHOICE AND SO ON
+%PROBABLY MOVE TO STATA; NOT WORTH IT!!!
+%%%%%
+
+%%%%
+%Active Choice
+%%%
+
+first_year = accumarray(indiv_id,year,[],@min);
+last_year = accumarray(indiv_id,year,[],@max);
+
+first_year_expand = zeros(rows(year),1);
+last_year_expand = zeros(rows(year),1);
+
+
+for i = 1:rows(first_year);
+   year_row = indiv_id(i,1);
+   first = indir_utility_max(util_row,1);
+   first_year_expand(i,1) = first_year(year_row,1);
+   last_year_expand(i,1) = last_year(year_row,1);
+end;
+
+
+indir_utility =  prem_income * alpha_hat' + qual_risk * beta_hat' + cov_risk * gamma_hat' + year_dum * xi_hat';
+indir_utility = indir_utility + plan_vars * delta_hat' + random('ev', 0, 1,[rows(prem_income),1]) ;
+
+indir_utility_max = accumarray(choice_sit,indir_utility,[],@max);
+
+indir_utility_max_expand = zeros(rows(indir_utility),1);
+
+for i = 1:rows(indir_utility);
+   util_row = choice_sit(i,1);
+   util_val = indir_utility_max(util_row,1);
+   indir_utility_max_expand(i,1) = util_val;
+end;
+
+
+plan_chosen_if_active = indir_utility == indir_utility_max_expand;
+
+    
+%%
+%%%%%
+%Flag if Dominated Plan
+%%%%%
+
+chosen_premium = accumarray(choice_sit, premium .* choice);
+chosen_quality = accumarray(choice_sit, quality .* choice);
+chosen_coverage = accumarray(choice_sit, coverage .* choice);
+
+chosen_prem_expand = zeros(rows(choice_sit),1);
+chosen_quality_expand = zeros(rows(choice_sit),1);
+chosen_coverage_expand = zeros(rows(choice_sit),1);
+
+for i = 1:rows(choice_sit);
+   choice_row = choice_sit(i,1);
+   prem_val = chosen_premium(choice_row,1);
+   qual_val = chosen_quality(choice_row,1);
+   cov_val = chosen_coverage(choice_row,1);
+   chosen_prem_expand(i,1) = prem_val;
+   chosen_quality_expand(i,1) = qual_val;
+   chosen_coverage_expand(i,1) = cov_val;
+end;
