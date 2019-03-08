@@ -1,14 +1,15 @@
-function [log_like] = llplan(params,caseid,choice,prem_income,qual_risk,cov_risk,plan_dum,prob_vars,plan_vars)
-    
+function [log_like] = llplan(params,caseid,choice,prem_income,qual_risk,cov_risk,year_dum,prob_vars,plan_vars)
+ 
+
     %Recode Input Variables
     alpha = params(1,1:4);
     beta = params(1,5:8);
     gamma = params(1,9:12);
-    delta = params(1,13:14);
-    xi = params(1,15:113);
-    psi = params(1,114:124);
-    mu = params(1,125);
-    sigma2 = params(1,126);
+    delta = params(1,13:15);
+    xi = params(1,16:23);
+    psi = params(1,24:34);
+    mu = params(1,35);
+    sigma2 = params(1,36);
 
     tool = prob_vars(:,1);
     num_plans = prob_vars(:,2);
@@ -22,10 +23,11 @@ function [log_like] = llplan(params,caseid,choice,prem_income,qual_risk,cov_risk
     
     coverage = plan_vars(:,1);
     quality = plan_vars(:,2);
+    same_plan = plan_vars(:,3);
     
     % Representative utility (without error)
-    V = prem_income * alpha' + qual_risk * beta' + cov_risk * gamma' + plan_dum * xi';
-    V = V + delta(1,1) * coverage + delta(1,2) * quality;
+    V = prem_income * alpha' + qual_risk * beta' + cov_risk * gamma' + year_dum * xi';
+    V = V + delta(1,1) * coverage + delta(1,2) * quality + delta(1,3) * same_plan;
     
     %Search Probability
     lower_bound_cdf = psi(1,1) * tool + psi(1,2) * num_plans + psi(1,3) * num_plans .^2;
