@@ -1,7 +1,7 @@
 %Created by RM on 2019.03.06 for ECON 632
 %Part II: Programming
 
-%Dependencies: llplan
+%Dependencies: overflow, rm_accumarray, ll3, ll4a, ll4b, ll4c
 
 %%
 %%%%%%%%
@@ -59,7 +59,7 @@ plan_vars = horzcat(coverage, quality, same_plan);
 %Set Starting Values for All Parameters 
 %%%%
 
-alpha_start = [0 0 0 0];
+alpha_start = [0 0 0 0]s
 beta_start = [0 0 0 0];
 gamma_start = [0 0 0 0];
 delta_start = [0 0 0];
@@ -75,8 +75,46 @@ x0 = horzcat(alpha_start,beta_start,gamma_start,delta_start,psi_start,mu_start);
 %%%%%
 
 options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-14,'TolX',1e-14,'Diagnostics','on','MaxFunEvals',200000,'MaxIter',1000); 
-[estimateplan] = fminunc(@(x)llplan(x,choice_sit,choice,prem_income,qual_risk,cov_risk,prob_vars,plan_vars),x0,options);
-
+%options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-14,'TolX',1e-14,'Diagnostics','on'); 
+%[estimateplan,,exitflag,output,Gradient,Hessianplan] = fminunc(@(x)llplan(x,choice_sit,choice,prem_income,qual_risk,cov_risk,plan_dum,prob_vars,plan_vars),x0,options);
+[estimateplan, log_like,exitflag, output, Gradient, Hessianplan] = fminunc(@(x)llplan2(x,choice_sit,choice,prem_income,qual_risk,cov_risk,prob_vars,plan_vars),x0,options);
 
 %%
+cov_Hessian = inv(Hessianplan);
+std_c = sqrt(diag(Hessianplan));
+%function [log_like] = llplan(alpha,beta,gamma,xi,psi,mu,sigma2,caseid,choice)
+
+%% 
+%%%%% 
+%Double Check Starting Values
+%%%%
+
+alpha_start_2 = [-.4 -.3 -.2 -.1];
+beta_start_2 = [1 1.5 2 2.5];
+gamma_start_2 = [0 1 2 3];
+delta_start_2 = [.1 .1 .1];
+
+psi_start_2 = [0 0 0 0 0 0 0 0 0 0 0] + .05;
+mu_start_2 = .5;
+
+x0_2 = horzcat(alpha_start_2,beta_start_2,gamma_start_2,delta_start_2,psi_start_2,mu_start_2);
+
+%%
+[estimateplan_2, log_like_2] = fminunc(@(x)llplan2(x,choice_sit,choice,prem_income,qual_risk,cov_risk,prob_vars,plan_vars),x0_2,options);
+
+compare = horzcat(estimateplan',estimateplan_2');
+
+%%
+%%%%%
+%Now check what percent are picking dominated in counterfactual analysis
+%%%%
+
+
+%alpha_hat = estimateplan_2(1,1:4);
+%beta_hat = estimateplan_2(1,5:8);
+%gamma_hat = estimateplan_2(1,9:12);
+%delta_hat = estimateplan_2(1,13:15);
+%psi_hat = estimateplan_2(1,16:26);
+%mu_hat = estimateplan_2(1,27);
+
 csvwrite('/Users/russellmorton/Desktop/Coursework/Winter 2019/ECON 632/Problem Sets/Temp/params_hat.csv',estimateplan);

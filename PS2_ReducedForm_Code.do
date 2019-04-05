@@ -28,8 +28,6 @@ su choice_sit_dif, d
 
 use "$temp/insurance_data", clear
 
-drop choice_sit
-
 /* Assume All Plans Available to All Employees, Consistent with Understanding of Employer Sponsored Health Insurance 
 BUT needs to be same year*/
 
@@ -51,7 +49,6 @@ bys indiv_id year: egen num_plans = sum(ones)
 drop ones
 
 drop pre_chose_dominated
-
 
 save "$temp/add_chose_dominated", replace
 
@@ -142,14 +139,16 @@ replace plan_goes_away = 1 if pre_plan_goes_away > 0 & last_year_plan != .
 *sort indiv_id year plan_id
 *browse indiv_id year plan_id plan_choice last_year_plan pre_plan_goes_away plan_goes_away
 
+g switch_plan = last_year_plan != plan_choice & last_year_plan != .
+g same_plan = last_year_plan == plan_id
+
+g num_plans_2 = num_plans^2
+
+save "$temp/allrows_addvars", replace
+
 keep if plan_id == plan_choice
 
 g chose_min = premium == min_premium
-
-g switch_plan = last_year_plan != plan_choice & last_year_plan != .
-g same_plan = last_year_plan == plan_choice
-
-g num_plans_2 = num_plans^2
 
 g chose_new_dominated = switch_plan * chose_dominated
 
@@ -220,7 +219,7 @@ g year_dom = year - .2
 g year_new_dom = year + .2
 
 graph twoway (bar perc_dom year_dom, barw(.4)) (bar perc_new_dom year_new_dom, barw(.4) xtitle("Year") ytitle("Percent") ///
-		title("Percent of Participants Switching to Dominated Plans") legend( si(small) cols(1)  ///
+		title("Participants Choosing vs Switching to Dominated Plans") legend( si(small) cols(1)  ///
 		lab(1 "% Choosing a Dominated Plan") lab(2 "% Switching to a Dominated Plan") ) ///
 		note("Note: Percent Choosing Dominated Plan represents the percent of participants who chose a dominated plan.", si(vsmall) ) ///
 		note("Percent Switching to Dominated Plan represents the percent of participants who chose a dominated plan and switched plans.", si(vsmall)  suffix) ///
@@ -262,12 +261,15 @@ graph export "$output/Dom_Switch_Plan_Tool.pdf", as (pdf) replace
 use "$temp/deduped_addvars", clear
 
 logit chose_dominated age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 same_plan plan_goes_away i.year if year > 2008
+margins, dydx(*) post
 	regsave age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 same_plan plan_goes_away ///
 	using "$temp/reduced_form_logit", pval addlabel(outcome, "chose_dominated",interacts, "None") replace
 logit switch_plan age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_min i.year if year > 2008 & plan_goes_away == 0
+margins, dydx(*) post
 	regsave age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_min ///
 	using "$temp/reduced_form_logit", pval addlabel(outcome, "switch_plan",interacts, "None") append
 logit chose_new_dominated age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away i.year if year > 2008
+margins, dydx(*) post
 	regsave age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away ///
 	using "$temp/reduced_form_logit", pval addlabel(outcome, "chose_new_dominated",interacts, "None") append
 
@@ -277,13 +279,17 @@ g risk_score_comp_tool = risk_score * has_comparison_tool
 g num_plans_comp_tool = has_comparison_tool * num_plans
 
 logit switch_plan risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_min i.year if year > 2008 & plan_goes_away == 0
+margins, dydx(*) post
 	regsave risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 chose_min ///
 	using "$temp/reduced_form_logit", pval addlabel(outcome, "switch_plan",interacts, "Yes") append
-logit chose_new_dominated risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away i.year if year > 2008
-	regsave risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away ///
+logit chose_new_dominated risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away chose_min i.year if year > 2008
+margins, dydx(*) post
+	regsave risk_score_comp_tool num_plans_comp_tool age sex risk_score income years_enrolled has_comparison_tool num_plans num_plans_2 plan_goes_away chose_min ///
 	using "$temp/reduced_form_logit", pval addlabel(outcome, "chose_new_dominated",interacts, "Yes") append
 
 use "$temp/reduced_form_logit", clear
+
+replace var = outcome + ":" + var
 
 **TOSTRING FOR EXPORT
 g coef_round = round(coef,.001)
@@ -306,11 +312,11 @@ export excel using "$output/ReducedFormLogit.xlsx", first(var) replace
 
 use "$temp/deduped_addvars", clear
 
-keep indiv_id year num_plans last_year_plan plan_goes_away chose_min same_plan chose_min
+keep indiv_id year num_plans last_year_plan plan_goes_away chose_min
 
 save "$temp/mergeon", replace
 
-use "$temp/insurance_data", clear
+use "$temp/allrows_addvars", clear
 
 merge m:1 indiv_id year using "$temp/mergeon"
 
@@ -335,35 +341,21 @@ forv i = 1(1)4{
 	g quality_risk_q`i' = plan_service_quality * risk_score_q`i'
 	g coverage_risk_q`i' = plan_coverage * risk_score_q`i'
 	}
-	
-	
-egen min_plan = min(plan_id)
-local minplan = min_plan
-egen max_plan = max(plan_id)
-local maxplan = max_plan
-egen min_year = min(year)
-local minyear = min_year
-egen max_year = max(year)
-local maxyear = max_year
 
-
-forv i = `minplan'(1)`maxplan' {
-	forv j = `minyear'(1)`maxyear' {
-		g plan_`i'_`j' = plan_id == `i' & year == `j'
-		egen check_drop = max(plan_`i'_`j')
-		local checkdrop = check_drop
-		if `checkdrop' < 1 {
-			drop plan_`i'_`j'
-		}
-		drop check_drop
-	}
-}
+drop minyear maxyear pre_plan_goes_away
 	
-drop min_plan max_plan min_year max_year
-	
+save "$temp/insurance_data_for_matlab", replace	
 	
 export delim "$temp/insurance_data_mod.csv", delim(",") replace
  
 
-
+ 
+ /* Target Two Moments: For Params for Normal */
+ 
+ drop if plan_goes_away == 1
+ drop if years_enrolled == 1
+ keep if indiv_id == plan_choice
+ su switch_plan
+ 
+ 
 

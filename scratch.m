@@ -1,18 +1,15 @@
 
 
-    params = x0_2;
+    params = x0;
     caseid = choice_sit;
 
-    %Recode Input Variables
-     alpha = params(1,1:4);
+    alpha = params(1,1:4);
     beta = params(1,5:8);
     gamma = params(1,9:12);
     delta = params(1,13:15);
-    xi = params(1,16:23);
-    psi = params(1,24:34);
-    mu = params(1,35);
-    sigma2 = params(1,36);
-
+    psi = params(1,16:26);
+    mu = params(1,27);
+    
     tool = prob_vars(:,1);
     num_plans = prob_vars(:,2);
     risk = prob_vars(:,3);
@@ -22,14 +19,14 @@
     chose_min = prob_vars(:,7);
     first_year = prob_vars(:,8);
     plan_goes_away = prob_vars(:,9);
+    switch_plan = prob_vars(:,10);
     
     coverage = plan_vars(:,1);
     quality = plan_vars(:,2);
     same_plan = plan_vars(:,3);
-    
     %%
     % Representative utility (without error)
-    V = prem_income * alpha' + qual_risk * beta' + cov_risk * gamma' + year_dum * xi';
+    V = prem_income * alpha' + qual_risk * beta' + cov_risk * gamma';
     V = V + delta(1,1) * coverage + delta(1,2) * quality + delta(1,3) * same_plan;
     
     %Search Probability
@@ -41,10 +38,23 @@
     lower_bound_cdf = lower_bound_cdf + psi(1,10) * tool .* risk ;
     lower_bound_cdf = lower_bound_cdf + psi(1,11) * tool .* age ;
 
-    active_choice = horzcat(first_year, plan_goes_away, 1-cdf('Normal',-1 * lower_bound_cdf,mu,sigma2));
-    prob_active_choice = max(active_choice,[],2);
-    pre_prob_active_choice_per_sit = accumarray(caseid,prob_active_choice,[],@max);
-    prob_active_choice_per_sit = pre_prob_active_choice_per_sit(unique(caseid),:);
+    %active_choice = horzcat(first_year, plan_goes_away, 1-cdf('Normal',-1 * lower_bound_cdf,mu,1));
+    %prob_active_choice = max(active_choice,[],2);
+    %pre_prob_active_choice_per_sit = accumarray(caseid,prob_active_choice,[],@max);
+    %prob_active_choice_per_sit = pre_prob_active_choice_per_sit(unique(caseid),:);
+    
+    prob_active_choice = 1-cdf('Normal',-1 * lower_bound_cdf,mu,1);
+    prob_active_choice_per_sit = accumarray(caseid,prob_active_choice,[],@max);
+    prob_active_choice_per_sit = prob_active_choice_per_sit(unique(caseid));
+    
+    new = max(horzcat(first_year,plan_goes_away),[],2);
+    new_per_sit = accumarray(caseid,new,[],@max);
+    new_per_sit = new_per_sit(unique(caseid));
+    not_new_per_sit = 1 - new_per_sit;
+    
+    switch_plan_per_sit = accumarray(caseid,switch_plan,[],@max);
+    switch_plan_per_sit = switch_plan_per_sit(unique(caseid));
+
     
     %%
     % Log likelihood
@@ -53,7 +63,9 @@
     V_sum = accumarray(caseid,V_exp);
     V_sum_per_sit = V_sum(unique(caseid));
     
-    like_vec = (V_chosen./V_sum_per_sit) .* prob_active_choice_per_sit + (1 - prob_active_choice_per_sit);
+    prob_choose_j = (V_chosen./V_sum_per_sit);
+    like_vec = prob_choose_j .* new_per_sit + not_new_per_sit .* ( prob_active_choice_per_sit .*  prob_choose_j);
+    like_vec = like_vec + not_new_per_sit .* ( (1-switch_plan_per_sit) .* (1 - prob_active_choice_per_sit) );
     log_like = -sum(log(like_vec));
 
 

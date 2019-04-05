@@ -87,6 +87,8 @@ g taste_shock_cdf = runiform()
 g taste_shock_scale = sqrt(6 / (c(pi)^2) )
 g taste_shock = -1 * taste_shock_scale * log( - 1 * log(taste_shock_cdf))
 
+replace has_comparison_tool = 1
+
 
 forv y=1(1)`maxyearsprogram' {
 
@@ -96,7 +98,7 @@ forv y=1(1)`maxyearsprogram' {
 						+ psi4 * risk_score + psi5 * age + psi6 * income + psi7 * years_enrolled ///
 						+ psi8 * chose_min_sim + psi9 * has_comparison_tool * num_plans ///
 						+ psi10 * has_comparison_tool * risk_score + psi11 * has_comparison_tool * age ///
-						+ rnormal(mu, sigma2) if year_in_program_recode == `y'
+						 if year_in_program_recode == `y'
 	
 	g active_choice_`y' = active_choice_prob_`y' > 0
 	
@@ -106,7 +108,7 @@ forv y=1(1)`maxyearsprogram' {
 
 	forv i = 1(1)4 {
 		replace indir_util_`y' = indir_util_`y' + alpha`i' * premium_income_q`i' + beta`i' * quality_risk_q`i' ///
-								+ gamma`i' * coverage_risk_q`i' + taste_shock if year_in_program_recode == `y'
+								+ gamma`i' * coverage_risk_q`i'  if year_in_program_recode == `y'
 		if `i' < 4 {
 			replace indir_util_`y' = indir_util_`y' + delta1 * plan_coverage + delta2 * plan_service_quality ///
 			+ delta3 * same_plan_sim if year_in_program_recode == `y'
@@ -154,6 +156,12 @@ forv y=1(1)`maxyearsprogram' {
 	
 	/* Still Need Chose Min Sim */
 	
+	g chosen_premium_sim = premium if plan_id == plan_choice_sim & year_in_program_recode == `y'
+	bys indiv_id year: egen min_premium_sim = min(premium)
+	replace chose_min_sim = 1 if year_in_program_recode == `y' & chosen_premium_sim == min_premium_sim
+	
+	drop chosen_premium_sim min_premium_sim
+	
 	
 }
 
@@ -161,5 +169,57 @@ forv y=1(1)`maxyearsprogram' {
 g correct_sim = plan_choice_sim == plan_choice 
 replace correct_sim = . if plan_choice_sim == .
 
+preserve
+keep if plan_id == plan_choice_sim
+
+tab num_plans correct_sim, row
+restore
+
+/*
  sort indiv_id year plan_id
  browse indiv_id year plan_id year_in_program_recode active_choice_1 indir_util_1 active_choice_2 indir_util_2 plan_choice_sim last_year_plan_sim
+*/
+
+/* Compare Statistics About Dominated Plan */
+
+rename plan_service_quality quality
+
+local chosenvars "premium plan_coverage quality"
+
+capture drop chosen_sim_premium
+
+foreach var of local chosenvars {
+	g pre_chosen_sim_`var' = `var' if plan_id == plan_choice_sim
+	bys indiv_id year: egen chosen_sim_`var' = max(pre_chosen_sim_`var')
+	drop pre_chosen_sim_`var'
+}
+
+
+
+g pre_chose_sim_dominated = plan_id != plan_choice_sim & premium <= chosen_sim_premium ///
+	& plan_coverage >= chosen_sim_plan_coverage & quality >= chosen_sim_quality
+
+bys indiv_id year: 	egen chose_sim_dominated = max(pre_chose_sim_dominated)
+
+keep indiv_id year plan_choice_sim chose_sim_dominated
+
+rename plan_choice_sim plan_choice_sim_all_tool 
+rename chose_sim_dominated chose_sim_dominated_all_tool
+
+duplicates drop
+
+save "$temp/all_tool_sim_choice_dominated", replace
+
+use "$temp/insurance_data_for_matlab", clear
+
+merge m:1 indiv_id year using "$temp/baseline_sim_choice_dominated"
+
+drop _merge
+
+merge m:1 indiv_id year using "$temp/all_tool_sim_choice_dominated"
+
+save "$temp/sim_choice_dominated_compare", replace
+
+keep if plan_id == plan_choice_sim
+
+
