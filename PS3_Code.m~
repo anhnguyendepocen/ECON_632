@@ -90,7 +90,7 @@ end;
 val_info = horzcat(demand_state,operate_state,val_next);
 
 %%
-%Now Put Into a MLE Routine
+%Now Put Into a MLE Routine: First, prepare data
 
 %Create New Dataset For MLE with exogenous state, operate decision, and
 %lag, operate decision
@@ -124,6 +124,69 @@ for i = 2:rows_data;
 end;
 
 
+%%
+%RUN MLE!!!
+
+x0 = [8 4 3];
+ln_x0 = log(x0);
+
+options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-16,'TolX',1e-16,'Diagnostics','on','MaxFunEvals',200000,'MaxIter',1000); 
+[estimate_entryexit] = fminunc(@(x)llnfxp(x,mle_data,beta,state_probs),ln_x0,options);
+
+estimates = log(estimate_entryexit);
 
 
+
+%%
+%Chart of Fraction of Periods Operating Given Delta
+
+%One as in market prob given not in market (entry prob)
+%One as in market prob given in market (stay prob)
+%One as weighted prob based on actual distribution of in/out in data in 
+%first period
+
+
+
+delta_list = (0:.01:2)';
+graph_data = zeros(rows(delta_list),3);
+theta0 = 1;
+theta1 = 1;
+
+%Need to find value function for each parameter value,  write as function
+%and then go from there
+
+%find distribution of states in the data
+dist_states = row_sums / rows(data);
+
+%delta_list = [.1 .2 .3 .4 .5]';
+
+for i = 1:rows(delta_list);
+
+    delta_use = delta_list(i,1);
+    vals = value(theta0,theta1,delta_use,state_probs);
+    %vals = value(theta0,theta1,.1,state_probs);
+    max_val = max(vals);
+    vals_at_i0 = vals(operate_state == 0);
+    vals_at_i1 = vals(operate_state == 1);
+
+    prob_i0_delta = 0;
+    prob_i0_state = zeros(5,2);
+    
+    for j = 1: rows(vals_at_i0);
+       prob_i0_temp_num  = beta * max_val + exp(beta * vals_at_i0(j,1) - beta * max_val);
+       prob_i0_temp_den_from_0  = beta * max_val + exp(theta0 + j * theta1 - delta_use + beta * vals_at_i1(j,1) - beta * max_val);
+       prob_i0_temp_den_from_1  = beta * max_val + exp(theta0 + j * theta1 + beta * vals_at_i1(j,1) - beta * max_val);
+       prob_i0_state(j,1) = prob_i0_temp_num / prob_i0_temp_den_from_0;
+       prob_i0_state(j,2) = prob_i0_temp_num / prob_i0_temp_den_from_1;
+    end;
+    
+    prob_i0_avg_state = dist_states * prob_i0_state;
+    graph_data(i,1) = 1 - prob_i0_avg_state(1,1);
+    graph_data(i,2) = 1 - prob_i0_avg_state(1,2);
+    graph_data(i,3) = sum(data(:,2))/rows(data) * graph_data(i,2) + (1- sum(data(:,2))/rows(data)) * graph_data(i,1); 
+    
+%Now just use pi0 which is ratio and then graph
+end;
+
+export_graph_data = 
 

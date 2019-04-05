@@ -46,7 +46,8 @@ function [log_like] = llnfxp(x,mle_data,beta,state_probs)
         end;
  
         val_info = horzcat(demand_state,operate_state,val_next);
-
+         max_val = max(val);
+        
     
     % Choice Probabilities
     prob_i0 = zeros(rows(mle_data),1);
@@ -57,8 +58,8 @@ function [log_like] = llnfxp(x,mle_data,beta,state_probs)
         val_i0 = sum( val .* (demand_state == demand_state_use) .* (operate_state == 0) );
         val_i1 = sum( val .* (demand_state == demand_state_use) .* (operate_state == 1) );
 
-        prob_i0_num = exp(beta * val_i0);
-        prob_i0_den = prob_i0_num + exp(theta_test(1,1) + demand_state_use * theta_test(1,2) - (1 - last_operate) * theta_test(1,3) + beta * val_i1);
+        prob_i0_num = beta * max_val + exp(beta * val_i0 - beta * max_val);
+        prob_i0_den = prob_i0_num + beta *max_val + exp(theta_test(1,1) + demand_state_use * theta_test(1,2) - (1 - last_operate) * theta_test(1,3) + beta * val_i1 - beta * max_val);
         
         prob_i0(i,1) = prob_i0_num / prob_i0_den;
         pre_log_like(i,1) = prob_i0(i,1) * (1 - mle_data(i,2)) + (1-prob_i0(i,1)) * mle_data(i,2);
