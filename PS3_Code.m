@@ -48,16 +48,16 @@ state_probs = initial_state_probs .* pre_state_probs;
 %For NFXP Algo, compute value function given parameters
 %Use expected value function rather than actual value function
 
-param = [ 1 2 1];
+param = [1 2 1];
 
 %tol = 1^(-14);
 tol = 10^(-14);
 error = 100;
 
-val = zeros(10,1) + 1;
+val = zeros(10,1) + 100;
 demand_state = repmat([ 1 2 3 4 5]',2);
 demand_state = demand_state(:,1);
-operate_state = repmat([ 0 1]',5);
+operate_state = [0 0 0 0 0 1 1 1 1 1]';
 operate_state = operate_state(:,1);
 val_next = zeros(10,1);
 
@@ -65,6 +65,7 @@ loop_counter = 0;
 
 while error > tol;  
     loop_counter = loop_counter + 1;
+    loop_counter
 
     for i = 1: rows(val);
          current_demand_state = demand_state(i,1);
@@ -72,10 +73,11 @@ while error > tol;
 
          continuation_vals_i0 = beta * val(operate_state == 0);
          continuation_vals_i1 = beta * val(operate_state == 1);
+         max_val = beta * max(val);
 
          flow_utility = param(1,1) + param(1,2) * current_demand_state - (1-operate_state(i,1)) * param(1,3);
          
-         logit_incl_vals = log(exp(continuation_vals_i0) + exp(flow_utility + continuation_vals_i1));
+         logit_incl_vals = log( 2 * max_val + exp(continuation_vals_i0 - max_val) + exp(flow_utility + continuation_vals_i1 - max_val) );
          val_next_i = transition_probs * logit_incl_vals;
          val_next(i,1) = val_next_i;
           
@@ -88,6 +90,28 @@ while error > tol;
 end;
 
 val_info = horzcat(demand_state,operate_state,val_next);
+
+%%
+test = value(param(1,1), param(1,2), param(1,3), state_probs);
+
+%%
+test_sr = value( 1, 1, 1, state_probs);
+compare_sr = zeros(rows(test_sr),3,2);
+
+for i = 1: rows(test_sr);
+    compare_sr(i,1,1) =  test_sr(i,1);
+    compare_sr(i,1,2) =  test_sr(i,1);
+    
+    compare_sr(i,2,1) =  test_sr(i,2);
+    compare_sr(i,2,2) =  test_sr(i,2);
+    
+    compare_sr(i,3,1) = beta * test_sr(i,3);
+    compare_sr(i,3,2) = beta * test_sr(i,3) + param(1,1) + param(1,2) *  compare_sr(i,1,2) - (1- compare_sr(i,2,2)) * param(1,3);
+    
+end;
+
+
+
 
 %%
 %Now Put Into a MLE Routine: First, prepare data
@@ -110,7 +134,7 @@ for i = 2:rows_data;
         
         operate_choice = data(i,2);
         
-        j = i -1;
+        j = i - 1;
         last_operate_choice = data(j,2);
         
         mle_data(row_counter,:) = [demand_state  operate_choice last_operate_choice];
@@ -127,8 +151,9 @@ end;
 %%
 %RUN MLE!!!
 
-x0 = [8 4 3];
-ln_x0 = log(x0);
+x0 = [2 2 2];
+%ln_x0 = log(x0);
+ln_x0 = x0;
 
 options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-16,'TolX',1e-16,'Diagnostics','on','MaxFunEvals',200000,'MaxIter',1000); 
 [estimate_entryexit] = fminunc(@(x)llnfxp(x,mle_data,beta,state_probs),ln_x0,options);

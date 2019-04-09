@@ -1,7 +1,5 @@
 function [valuemat] = value(theta0,theta1,delta,state_probs)
-beta = .95;
-
-tol = 10^(-14);
+tol = 10^(-16);
 error = 100;
 
 val = zeros(10,1) + 1;
@@ -23,7 +21,7 @@ while error > tol;
          continuation_vals_i1 = beta * val(operate_state == 1);
          max_val = beta * max(val);
 
-         flow_utility = theta0 + theta1 * current_demand_state - (1-operate_state(i,1)) * delta;
+         flow_utility = param(1,1) + param(1,2) * current_demand_state - (1-operate_state(i,1)) * param(1,3);
          
          logit_incl_vals = log( 2*max_val + exp(continuation_vals_i0 - max_val) + exp(flow_utility + continuation_vals_i1 - max_val) );
          val_next_i = transition_probs * logit_incl_vals;
