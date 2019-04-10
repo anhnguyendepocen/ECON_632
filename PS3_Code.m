@@ -13,7 +13,7 @@ beta = .95;
 %Compute transition probabilities of exogenous observed state variable
 %Assume same for all markets
 
-rows_data = rows(data);
+rows_data = length(data);
 pre_state_probs = zeros(5,5);
 
 pre_market = data(1,1);
@@ -36,7 +36,7 @@ end;
 row_sums = sum(pre_state_probs');
 inv_row_sums = zeros(rows(pre_state_probs),1);
 
-for i = 1:rows(pre_state_probs);
+for i = 1:length(pre_state_probs);
     inv_row_sums(i,1) = 1/row_sums(1,i);
 end;
 
@@ -51,10 +51,10 @@ state_probs = initial_state_probs .* pre_state_probs;
 param = [1 2 1];
 
 %tol = 1^(-14);
-tol = 10^(-14);
+tol = 10^(-16);
 error = 100;
 
-val = zeros(10,1) + 100;
+val = zeros(10,1) ;
 demand_state = repmat([ 1 2 3 4 5]',2);
 demand_state = demand_state(:,1);
 operate_state = [0 0 0 0 0 1 1 1 1 1]';
@@ -67,7 +67,7 @@ while error > tol;
     loop_counter = loop_counter + 1;
     loop_counter
 
-    for i = 1: rows(val);
+    for i = 1: length(val);
          current_demand_state = demand_state(i,1);
          transition_probs = state_probs(current_demand_state,:);
 
@@ -77,7 +77,8 @@ while error > tol;
 
          flow_utility = param(1,1) + param(1,2) * current_demand_state - (1-operate_state(i,1)) * param(1,3);
          
-         logit_incl_vals = log( 2 * max_val + exp(continuation_vals_i0 - max_val) + exp(flow_utility + continuation_vals_i1 - max_val) );
+         logit_incl_vals =  max_val + log(  exp(continuation_vals_i0 - max_val ) + exp(flow_utility + continuation_vals_i1 - max_val) );
+         %logit_incl_vals_ugly = log(  exp(continuation_vals_i0) + exp(flow_utility + continuation_vals_i1) );
          val_next_i = transition_probs * logit_incl_vals;
          val_next(i,1) = val_next_i;
           
@@ -96,9 +97,9 @@ test = value(param(1,1), param(1,2), param(1,3), state_probs);
 
 %%
 test_sr = value( 1, 1, 1, state_probs);
-compare_sr = zeros(rows(test_sr),3,2);
+compare_sr = zeros(length(test_sr),3,2);
 
-for i = 1: rows(test_sr);
+for i = 1: length(test_sr);
     compare_sr(i,1,1) =  test_sr(i,1);
     compare_sr(i,1,2) =  test_sr(i,1);
     
@@ -151,7 +152,7 @@ end;
 %%
 %RUN MLE!!!
 
-x0 = [2 2 2];
+x0 = [1 1 1];
 %ln_x0 = log(x0);
 ln_x0 = x0;
 
