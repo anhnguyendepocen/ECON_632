@@ -11,8 +11,6 @@ function [log_like] = llnfxp(x,mle_data,beta,state_probs)
    
     val_info = value(theta_test(1,1),theta_test(1,2),theta_test(1,3),state_probs);
     val = val_info(:,3);
-    max_val = max(val);
-    beta_max_val = beta * max_val;
         
     
     %% Choice Probabilities
@@ -28,7 +26,7 @@ function [log_like] = llnfxp(x,mle_data,beta,state_probs)
         prob_i0_den = prob_i0_num + exp(theta_test(1,1) + demand_state_use * theta_test(1,2) - (1 - last_operate) * theta_test(1,3) + beta * val_i1 );
         
         prob_i0(i,1) = prob_i0_num / prob_i0_den;
-        pre_log_like(i,1) = log(prob_i0(i,1)) * (1 - mle_data(i,2)) + log((1-prob_i0(i,1))) * mle_data(i,2);
+        pre_log_like(i,1) = log(prob_i0(i,1)) * (1 - mle_data(i,2)) + log( (1-prob_i0(i,1)) ) * mle_data(i,2);
         
     end;
 

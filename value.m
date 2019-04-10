@@ -1,7 +1,7 @@
 function [valuemat] = value(theta0,theta1,delta,state_probs)
 beta = .95;
 
-tol = 10^(-16);
+tol = 10^(-14);
 error = 100;
 
 val = zeros(10,1) + 1;

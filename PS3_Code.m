@@ -92,27 +92,6 @@ end;
 
 val_info = horzcat(demand_state,operate_state,val_next);
 
-%%
-test = value(param(1,1), param(1,2), param(1,3), state_probs);
-
-%%
-test_sr = value( 1, 1, 1, state_probs);
-compare_sr = zeros(length(test_sr),3,2);
-
-for i = 1: length(test_sr);
-    compare_sr(i,1,1) =  test_sr(i,1);
-    compare_sr(i,1,2) =  test_sr(i,1);
-    
-    compare_sr(i,2,1) =  test_sr(i,2);
-    compare_sr(i,2,2) =  test_sr(i,2);
-    
-    compare_sr(i,3,1) = beta * test_sr(i,3);
-    compare_sr(i,3,2) = beta * test_sr(i,3) + param(1,1) + param(1,2) *  compare_sr(i,1,2) - (1- compare_sr(i,2,2)) * param(1,3);
-    
-end;
-
-
-
 
 %%
 %Now Put Into a MLE Routine: First, prepare data
@@ -153,15 +132,12 @@ end;
 %RUN MLE!!!
 
 x0 = [1 1 1];
-%ln_x0 = log(x0);
-ln_x0 = x0;
 
 options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-16,'TolX',1e-16,'Diagnostics','on','MaxFunEvals',200000,'MaxIter',1000); 
-[estimate_entryexit] = fminunc(@(x)llnfxp(x,mle_data,beta,state_probs),ln_x0,options);
+[estimate_entryexit,log_like,exitflag,output,Gradient,Hessian] = fminunc(@(x)llnfxp(x,mle_data,beta,state_probs),x0,options);
 
-estimates = log(estimate_entryexit);
-
-
+inv_Hessian = inv(Hessian);
+std = sqrt(diag(inv_Hessian));
 
 %%
 %Chart of Fraction of Periods Operating Given Delta
