@@ -1,11 +1,6 @@
 function [log_like] = llnfxp(x,mle_data,beta,state_probs)
     % Parameters
-    %x = [ 1 2 1];
-    %x = ln_x0;    
-    
-    %theta_test = [exp(x(1,1)) exp(x(1,2)) exp(x(1,3))];
     theta_test = [x(1,1) x(1,2) x(1,3)];
-
     
     %%
    
@@ -30,10 +25,5 @@ function [log_like] = llnfxp(x,mle_data,beta,state_probs)
         
     end;
 
-    % Log likelihood
-    %V_exp = exp(V);
-    %V_chosen = V_exp(choice==1);
-    %V_sum = accumarray(caseid,V_exp);
-    %like_vec = (V_chosen./V_sum);
     log_like = -sum(pre_log_like);
 end

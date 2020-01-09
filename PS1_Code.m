@@ -168,6 +168,7 @@ xi2hat = 0;
 xi3hat = 0;
 x0 = [betahat xi1hat xi2hat];
 
+%%
 %Optimize Log Likelihood
 options  =  optimset('GradObj','off','LargeScale','off','Display','iter','TolFun',1e-14,'TolX',1e-14,'Diagnostics','on'); 
 [estimate3,log_like,exitflag,output,Gradient,Hessian3] = fminunc(@(x)ll3([x],caseid,choice3,price),x0,options);
